@@ -7,6 +7,31 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 
 
 class Sede(Base):
+    """
+    Entidad que representa un campus o sede física de la institución.
+
+    Permite administrar la operación multi-sede del sistema, asociando
+    ubicaciones descriptivas, puntos de entrega física y administradores.
+
+    Attributes:
+        sede_id (UUID): Identificador único de la sede (Primary Key).
+        nombre (str): Nombre de la sede (ej. 'Fraternidad', 'Robledo').
+        codigo (str): Código abreviado o nomenclatura de la sede (ej. 'FRA', 'ROB').
+        activa (bool): Permite activar/desactivar la sede sin borrar su historial.
+        fecha_creacion (datetime): Fecha y hora de creación del registro en el sistema.
+        fecha_edicion (datetime): Fecha y hora de la última modificación del registro.
+        id_usuario_crea (UUID): ID del usuario administrador que creó la sede.
+        id_usuario_edita (UUID): ID del usuario administrador que realizó la última modificación.
+
+    Relationships:
+        ubicaciones (list[Ubicacion]): Relación 'uno a muchos' con las zonas/áreas
+            descriptivas pertenecientes a esta sede.
+        puntos_entrega (list[PuntoEntrega]): Relación 'uno a muchos' con los puntos
+            físicos oficiales de recepción y custodia de la sede.
+        usuarios_administradores (list[Usuario]): Relación 'uno a muchos' con los
+            usuarios administradores asignados a gestionar esta sede.
+    """
+
     __tablename__ = "sedes"
 
     sede_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
