@@ -10,9 +10,8 @@ class Ubicacion(Base):
     """
     Entidad que representa una zona o área descriptiva dentro de un campus/sede.
 
-    Punto físico oficial donde se reciben y custodian objetos
-    (ej. Oficina de Objetos Perdidos, Portería Bloque J). Define a qué
-    sede pertenece administrativamente un objeto en custodia.
+    Zona descriptiva del campus (ej. Bloque J, Cafetería). No implica
+    custodia física; solo describe dónde ocurrió un hallazgo o una pérdida.
 
     Attributes:
         ubicacion_id (UUID): Identificador único de la ubicación (Primary Key).
