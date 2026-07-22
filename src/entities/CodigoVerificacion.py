@@ -43,7 +43,9 @@ class CodigoVerificacion(Base):
     usuario = relationship("Usuario", back_populates="codigos_verificacion")
 
     def esta_vigente(self) -> bool:
+        """Verifica si el código no ha sido usado y aún no ha alcanzado su tiempo de expiración."""
         return (not self.usado) and datetime.now(timezone.utc) < self.expira_en
 
     def marcar_usado(self) -> None:
+        """Marca el código como utilizado para invalidar reintentos futuros."""
         self.usado = True
