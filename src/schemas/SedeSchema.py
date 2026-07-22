@@ -42,7 +42,7 @@ class SedeResponse(SedeBase):
     sede_id: UUID
     fecha_creacion: Optional[datetime] = None
     fecha_edicion: Optional[datetime] = None
-    id_usuario_crea: Optional[UUID] = None
-    id_usuario_edita: Optional[UUID] = None
+    usuario_crea_id: Optional[UUID] = None
+    usuario_edita_id: Optional[UUID] = None
 
     model_config = ConfigDict(from_attributes=True)
