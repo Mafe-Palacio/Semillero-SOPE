@@ -70,7 +70,7 @@ class Usuario(Base):
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now())
     fecha_edicion = Column(DateTime(timezone=True), onupdate=func.now())
 
-    id_usuario_edita = Column(
+    usuario_edita_id = Column(
         UUID(as_uuid=True), ForeignKey("usuarios.usuario_id"), nullable=True
     )
 
