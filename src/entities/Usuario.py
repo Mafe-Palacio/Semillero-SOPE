@@ -85,11 +85,13 @@ class Usuario(Base):
     )
 
     def esta_habilitado(self) -> bool:
-        """Solo True si está verificado, activo y no bloqueado simultáneamente."""
+        """Verifica si el usuario está habilitado para operar (verificado, activo y no bloqueado)."""
         return self.is_verified and self.is_active and not self.is_blocked
 
     def es_admin(self) -> bool:
+        """Verifica si el usuario cuenta con rol de administrador."""
         return self.rol == "ADMIN"
 
     def dominio_correo(self) -> str:
+        """Retorna el dominio institucional del correo asignado."""
         return self.correo.split("@")[-1] if self.correo else ""
