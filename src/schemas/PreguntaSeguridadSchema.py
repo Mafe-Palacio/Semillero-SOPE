@@ -2,6 +2,11 @@ from typing import List
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, field_validator
 
+MIN_PREGUNTAS = 1
+MAX_PREGUNTAS = (
+    10  # tope de sanidad; la administradora decide cuántas dentro de este rango
+)
+
 
 class PreguntaSeguridadBase(BaseModel):
     """Información base para una pregunta de seguridad vinculada a un objeto."""
@@ -14,8 +19,10 @@ class PreguntaSeguridadBase(BaseModel):
     @classmethod
     def orden_valido(cls, v: int) -> int:
         """Valida que la posición de la pregunta esté en el rango permitido (1 a 3)."""
-        if not 1 <= v <= 3:
-            raise ValueError("El orden de la pregunta debe estar entre 1 y 3")
+        if not MIN_PREGUNTAS <= v <= MAX_PREGUNTAS:
+            raise ValueError(
+                f"El orden de la pregunta debe estar entre {MIN_PREGUNTAS} y {MAX_PREGUNTAS}"
+            )
         return v
 
 
@@ -26,7 +33,8 @@ class PreguntaSeguridadCreate(PreguntaSeguridadBase):
 
 
 class PreguntasSeguridadBulkCreate(BaseModel):
-    """La administradora configura de 1 a 3 preguntas para un objeto (HU04)."""
+    """La administradora configura la cantidad de preguntas que considere
+    apropiada para un objeto (HU04)."""
 
     objetoEnCustodia_id: UUID
     preguntas: List[PreguntaSeguridadCreate]
@@ -36,9 +44,10 @@ class PreguntasSeguridadBulkCreate(BaseModel):
     def cantidad_valida(
         cls, v: List[PreguntaSeguridadCreate]
     ) -> List[PreguntaSeguridadCreate]:
-        """Garantiza que la cantidad de preguntas asignadas esté estricta entre 1 y 3."""
-        if not 1 <= len(v) <= 3:
-            raise ValueError("Se debe configurar entre 1 y 3 preguntas por objeto")
+        if not MIN_PREGUNTAS <= len(v) <= MAX_PREGUNTAS:
+            raise ValueError(
+                f"Se debe configurar entre {MIN_PREGUNTAS} y {MAX_PREGUNTAS} preguntas por objeto"
+            )
         return v
 
 
