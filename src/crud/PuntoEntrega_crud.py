@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 from typing import List, Optional
 from sqlalchemy.orm import Session
@@ -189,14 +189,19 @@ class PuntoEntregaCRUD:
             raise ValueError("El usuario autenticado es obligatorio")
 
         campos_permitidos = {"nombre", "tipo", "activa"}
+        hubo_cambios = False
+
         for key, value in kwargs.items():
             if key in campos_permitidos and value is not None:
                 setattr(punto, key, value)
+                hubo_cambios = True
 
-        punto.usuario_edita_id = usuario_edita_id
+        if hubo_cambios:
+            punto.usuario_edita_id = usuario_edita_id
+            punto.fecha_edicion = datetime.now(timezone.utc)
 
-        self.db.commit()
-        self.db.refresh(punto)
+            self.db.commit()
+            self.db.refresh(punto)
 
         return punto
 
