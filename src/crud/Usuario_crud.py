@@ -319,10 +319,8 @@ class UsuarioCRUD:
     def actualizar_usuario(
         self, usuario_id: UUID, usuario_edita_id: UUID, **kwargs
     ) -> Optional[Usuario]:
-        """Actualización administrativa genérica (ej. corregir nombre_completo,
-        tipo_vinculacion, etc). No permite tocar campos sensibles como
-        hashed_password, rol o los flags de estado: para eso existen métodos
-        dedicados (cambiar_password_usuario, bloquear_usuario, etc)."""
+        """Actualización administrativa genérica de un usuario (nombre_completo,
+        celular, carnet, tipo_vinculacion). No toca campos sensibles."""
         usuario = self.obtener_usuario_por_id(usuario_id)
         if not usuario:
             return None
@@ -408,9 +406,7 @@ class UsuarioCRUD:
     def desactivar_usuario(
         self, usuario_id: UUID, usuario_edita_id: UUID
     ) -> Optional[Usuario]:
-        """Desactiva la cuenta (is_active=False) sin borrar el historial
-        de reportes/publicaciones asociados. Es el equivalente al 'eliminar'
-        de esta entidad (nunca se hace DELETE físico de un usuario)."""
+        """Desactiva la cuenta (is_active=False) sin borrar el historial asociado."""
         usuario = self.obtener_usuario_por_id(usuario_id)
         if not usuario:
             return None
