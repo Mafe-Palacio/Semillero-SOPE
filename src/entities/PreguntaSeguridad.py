@@ -34,14 +34,15 @@ class PreguntaSeguridad(Base):
     )
     pregunta = Column(String(250), nullable=False)
     respuesta_correcta = Column(String(500), nullable=False)
-    orden = Column(Integer, nullable=False)
+    orden = Column(
+        Integer, nullable=False
+    )  # posición dentro del cuestionario del objeto
 
     # Relaciones
     objeto = relationship("ObjetoEnCustodia", back_populates="preguntas_seguridad")
     respuestas = relationship("RespuestaSeguridad", back_populates="pregunta")
 
     def validar_respuesta(self, respuesta_usuario: str) -> bool:
-        """Compara la respuesta del usuario con la respuesta correcta (case-insensitive e ignorando espacios)."""
         return (
             respuesta_usuario.strip().lower() == self.respuesta_correcta.strip().lower()
         )
