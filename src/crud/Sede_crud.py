@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 from typing import List, Optional
 from sqlalchemy.orm import Session
@@ -24,7 +24,7 @@ class SedeCRUD:
         nombre: str,
         codigo: str,
         activa: bool = True,
-        usuario_crea_id: UUID = None,
+        usuario_crea_id: Optional[UUID] = None,
     ) -> Sede:
         """
         CRUD de la entidad Sede.
@@ -153,14 +153,19 @@ class SedeCRUD:
             raise ValueError("El usuario autenticado es obligatorio")
 
         campos_permitidos = {"nombre", "codigo", "activa"}
+        hubo_cambios = False
+
         for key, value in kwargs.items():
             if key in campos_permitidos and value is not None:
                 setattr(sede, key, value)
+                hubo_cambios = True
 
-        sede.usuario_edita_id = usuario_edita_id
+        if hubo_cambios:
+            sede.usuario_edita_id = usuario_edita_id
+            sede.fecha_edicion = datetime.now(timezone.utc)
 
-        self.db.commit()
-        self.db.refresh(sede)
+            self.db.commit()
+            self.db.refresh(sede)
 
         return sede
 
