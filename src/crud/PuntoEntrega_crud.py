@@ -64,7 +64,7 @@ class PuntoEntregaCRUD:
         )
 
     def obtener_puntos_entrega(
-        self, skip: int = 0, limit: int = 100, solo_activos: bool = False
+        self, skip: int = 0, limit: int = 100, solo_activos: bool = True
     ) -> List[PuntoEntrega]:
         """
         Obtiene la lista de puntos de entrega con opción de filtrar solo los activos.
