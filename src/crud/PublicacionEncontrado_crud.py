@@ -1,8 +1,10 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
 from src.entities.PublicacionEncontrado import PublicacionEncontrado
+from src.entities.Ubicacion import Ubicacion
+from src.entities.PuntoEntrega import PuntoEntrega
 
 
 class PublicacionEncontradoCRUD:
@@ -160,6 +162,50 @@ class PublicacionEncontradoCRUD:
                 PublicacionEncontrado.lugar_entrega_fisica_id == puntoEntrega_id,
                 PublicacionEncontrado.estado == "APROBADA",
             )
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def obtener_publicaciones_encontradas_por_sede_hallazgo(
+        self, sede_id: UUID, skip: int = 0, limit: int = 100
+    ) -> List[PublicacionEncontrado]:
+        """
+        Publicaciones cuyo lugar de HALLAZGO pertenece a una sede (join con
+        Ubicacion). Para el usuario que busca "¿encontraron algo en mi sede?",
+        sin importar a qué oficina fue entregado el objeto.
+        """
+        return (
+            self.db.query(PublicacionEncontrado)
+            .join(
+                Ubicacion,
+                PublicacionEncontrado.lugar_hallazgo_id == Ubicacion.ubicacion_id,
+            )
+            .filter(Ubicacion.sede_id == sede_id)
+            .order_by(PublicacionEncontrado.fecha_publicacion.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def obtener_publicaciones_encontradas_por_sede_entrega(
+        self, sede_id: UUID, skip: int = 0, limit: int = 100
+    ) -> List[PublicacionEncontrado]:
+        """
+        Publicaciones cuyo PUNTO DE ENTREGA pertenece a una sede (join con
+        PuntoEntrega). Para la bandeja de la administradora de esa sede,
+        sin importar en qué sede se haya encontrado originalmente el objeto
+        (ej. encontrado en Robledo, entregado en Fraternidad).
+        """
+        return (
+            self.db.query(PublicacionEncontrado)
+            .join(
+                PuntoEntrega,
+                PublicacionEncontrado.lugar_entrega_fisica_id
+                == PuntoEntrega.puntoEntrega_id,
+            )
+            .filter(PuntoEntrega.sede_id == sede_id)
+            .order_by(PublicacionEncontrado.fecha_publicacion.desc())
             .offset(skip)
             .limit(limit)
             .all()
@@ -331,14 +377,21 @@ class PublicacionEncontradoCRUD:
             raise ValueError("El usuario autenticado es obligatorio")
 
         campos_permitidos = {"categoria", "descripcion", "imagen_url"}
+        hubo_cambios = False
+
         for key, value in kwargs.items():
             if key in campos_permitidos and value is not None:
+                if key in {"categoria", "descripcion"} and not str(value).strip():
+                    raise ValueError(f"El campo '{key}' no puede estar vacío.")
                 setattr(publicacion, key, value)
+                hubo_cambios = True
 
-        publicacion.usuario_edita_id = usuario_edita_id
+        if hubo_cambios:
+            publicacion.usuario_edita_id = usuario_edita_id
+            publicacion.fecha_edicion = datetime.now(timezone.utc)
 
-        self.db.commit()
-        self.db.refresh(publicacion)
+            self.db.commit()
+            self.db.refresh(publicacion)
 
         return publicacion
 
