@@ -1,8 +1,9 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from src.entities.ObjetoEnCustodia import ObjetoEnCustodia
+from src.entities.PuntoEntrega import PuntoEntrega
 
 DIAS_POR_VENCER = 150  # ~5 meses
 DIAS_SIN_DUENO = 180  # ~6 meses
@@ -151,6 +152,27 @@ class ObjetoEnCustodiaCRUD:
             .all()
         )
 
+    def obtener_objetos_custodia_por_sede(
+        self, sede_id: UUID, skip: int = 0, limit: int = 100
+    ) -> List[ObjetoEnCustodia]:
+        """
+        Obtiene los objetos cuya oficina de origen pertenece a una sede
+        (join con PuntoEntrega, ya que ObjetoEnCustodia no guarda sede_id
+        propio). Es el filtro que usa la bandeja de la administradora.
+        """
+        return (
+            self.db.query(ObjetoEnCustodia)
+            .join(
+                PuntoEntrega,
+                ObjetoEnCustodia.lugar_origen_id == PuntoEntrega.puntoEntrega_id,
+            )
+            .filter(PuntoEntrega.sede_id == sede_id)
+            .order_by(ObjetoEnCustodia.fecha_ingreso.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
     def obtener_objetos_custodia_por_categoria(
         self, categoria: str, skip: int = 0, limit: int = 100
     ) -> List[ObjetoEnCustodia]:
@@ -235,14 +257,21 @@ class ObjetoEnCustodiaCRUD:
             "imagen_url",
             "detalles_internos",
         }
+        hubo_cambios = False
+
         for key, value in kwargs.items():
             if key in campos_permitidos and value is not None:
+                if key in {"categoria", "descripcion"} and not str(value).strip():
+                    raise ValueError(f"El campo '{key}' no puede estar vacío.")
                 setattr(objeto, key, value)
+                hubo_cambios = True
 
-        objeto.usuario_edita_id = usuario_edita_id
+        if hubo_cambios:
+            objeto.usuario_edita_id = usuario_edita_id
+            objeto.fecha_edicion = datetime.now(timezone.utc)
 
-        self.db.commit()
-        self.db.refresh(objeto)
+            self.db.commit()
+            self.db.refresh(objeto)
 
         return objeto
 
