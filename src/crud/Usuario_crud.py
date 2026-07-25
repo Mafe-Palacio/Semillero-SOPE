@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 from typing import List, Optional
 from sqlalchemy.orm import Session
@@ -334,14 +334,18 @@ class UsuarioCRUD:
             "carnet",
             "tipo_vinculacion",
         }
+        hubo_cambios = False
         for key, value in kwargs.items():
             if key in campos_permitidos and value is not None:
                 setattr(usuario, key, value)
+                hubo_cambios = True
 
-        usuario.usuario_edita_id = usuario_edita_id
+        if hubo_cambios:
+            usuario.usuario_edita_id = usuario_edita_id
+            usuario.fecha_edicion = datetime.now(timezone.utc)
 
-        self.db.commit()
-        self.db.refresh(usuario)
+            self.db.commit()
+            self.db.refresh(usuario)
 
         return usuario
 
