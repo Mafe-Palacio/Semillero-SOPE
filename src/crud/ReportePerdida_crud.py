@@ -3,6 +3,7 @@ from uuid import UUID
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from src.entities.ReportePerdida import ReportePerdida
+from src.entities.Ubicacion import Ubicacion
 
 
 class ReportePerdidaCRUD:
@@ -142,6 +143,23 @@ class ReportePerdidaCRUD:
         return (
             self.db.query(ReportePerdida)
             .filter(ReportePerdida.lugar_perdida_id == lugar_perdida_id)
+            .order_by(ReportePerdida.fecha_publicacion.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def obtener_reportes_perdida_por_sede(
+        self, sede_id: UUID, skip: int = 0, limit: int = 100
+    ) -> List[ReportePerdida]:
+        """
+        Obtiene los reportes cuyo lugar de pérdida pertenece a una sede
+        (join con Ubicacion, ya que ReportePerdida no guarda sede_id propio).
+        """
+        return (
+            self.db.query(ReportePerdida)
+            .join(Ubicacion, ReportePerdida.lugar_perdida_id == Ubicacion.ubicacion_id)
+            .filter(Ubicacion.sede_id == sede_id)
             .order_by(ReportePerdida.fecha_publicacion.desc())
             .offset(skip)
             .limit(limit)
