@@ -58,7 +58,7 @@ class SedeCRUD:
         return self.db.query(Sede).filter(Sede.sede_id == sede_id).first()
 
     def obtener_sedes(
-        self, skip: int = 0, limit: int = 100, solo_activas: bool = False
+        self, skip: int = 0, limit: int = 100, solo_activas: bool = True
     ) -> List[Sede]:
         """
         Obtiene la lista de sedes con opción de filtrar solo las activas.
