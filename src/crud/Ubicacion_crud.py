@@ -62,7 +62,7 @@ class UbicacionCRUD:
         )
 
     def obtener_ubicaciones(
-        self, skip: int = 0, limit: int = 100, solo_activas: bool = False
+        self, skip: int = 0, limit: int = 100, solo_activas: bool = True
     ) -> List[Ubicacion]:
         """
         Obtiene la lista de ubicaciones con opción de filtrar solo las activas.
@@ -88,19 +88,20 @@ class UbicacionCRUD:
         return query.order_by(Ubicacion.nombre).offset(skip).limit(limit).all()
 
     def obtener_ubicaciones_por_tipo(
-        self, sede_id: UUID, tipo: str, skip: int = 0, limit: int = 100
+        self,
+        tipo: str,
+        sede_id: Optional[UUID] = None,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[Ubicacion]:
         """
-        Obtiene las ubicaciones de una sede filtradas por su tipo.
+        Obtiene ubicaciones filtradas por tipo. Si se indica sede_id,
+        filtra además dentro de esa sede.
         """
-        return (
-            self.db.query(Ubicacion)
-            .filter(Ubicacion.sede_id == sede_id, Ubicacion.tipo == tipo)
-            .order_by(Ubicacion.nombre)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        query = self.db.query(Ubicacion).filter(Ubicacion.tipo == tipo)
+        if sede_id:
+            query = query.filter(Ubicacion.sede_id == sede_id)
+        return query.order_by(Ubicacion.nombre).offset(skip).limit(limit).all()
 
     def obtener_ubicaciones_por_nombre(
         self, nombre: str, skip: int = 0, limit: int = 100
