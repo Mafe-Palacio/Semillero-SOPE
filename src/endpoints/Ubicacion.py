@@ -38,7 +38,7 @@ async def crear_ubicacion(
     try:
         crud = UbicacionCRUD(db)
         return crud.crear_ubicacion(
-            sede_id=current_admin.sede_id, 
+            sede_id=current_admin.sede_id,
             nombre=ubicacion_data.nombre,
             tipo=ubicacion_data.tipo,
             activa=ubicacion_data.activa,
@@ -220,7 +220,7 @@ async def actualizar_ubicacion(
 
 
 @router.delete("/{ubicacion_id}", response_model=RespuestaAPI)
-async def eliminar_ubicacion(
+async def desactivar_ubicacion(
     ubicacion_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
