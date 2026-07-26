@@ -15,23 +15,24 @@ from sqlalchemy.orm import Session
 from src.core.config import Settings, get_settings
 from src.database.config import get_db
 
-##from src.entities.Usuario import Usuario_App
+from src.entities.Usuario import Usuario
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
 class CurrentUser(BaseModel):
-    """Claims mínimos del usuario autenticado (útil si una ruta necesita el contexto)."""
+    """Claims del usuario autenticado, usados por las rutas protegidas."""
 
     id_usuario: UUID
-    username: str
+    correo: str
     rol: str
+    sede_id: UUID | None = None  # solo tiene valor si rol == ADMIN
 
 
 def create_access_token(
     *,
     subject: UUID,
-    username: str,
+    correo: str,
     rol: str,
     settings: Settings,
 ) -> str:
@@ -40,7 +41,7 @@ def create_access_token(
     expire = now + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {
         "sub": str(subject),
-        "username": username,
+        "correo": correo,
         "rol": rol,
         "iat": int(now.timestamp()),
         "exp": expire,
@@ -80,14 +81,40 @@ async def get_current_user(
             status_code=401,
             detail="Token inválido o expirado",
         ) from None
-        """
-    user = db.query(Usuario_App).filter(Usuario_App.id_usuario == user_id).first()
+
+    user = db.query(Usuario).filter(Usuario.usuario_id == user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="Usuario no encontrado")
-    if not user.estado:
+    if not user.is_active:
         raise HTTPException(status_code=403, detail="Usuario inactivo")
+    if user.is_blocked:
+        raise HTTPException(status_code=403, detail="Usuario bloqueado")
 
     return CurrentUser(
-        id_usuario=user.id_usuario,
-        username=user.username,
-        rol=user.rol,)"""
+        id_usuario=user.usuario_id,
+        correo=user.correo,
+        rol=user.rol,
+        sede_id=user.sede_id,
+    )
+
+
+async def get_current_admin(
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """Exige rol ADMIN. Úsala en cualquier endpoint de escritura administrativa."""
+    if current_user.rol != "ADMIN":
+        raise HTTPException(status_code=403, detail="Requiere rol de administrador")
+    return current_user
+
+
+async def get_current_admin_con_sede(
+    current_admin: CurrentUser = Depends(get_current_admin),
+) -> CurrentUser:
+    """Exige ADMIN con una sede asignada. Úsala en endpoints donde el admin
+    solo debe poder operar sobre los datos de SU propia sede."""
+    if current_admin.sede_id is None:
+        raise HTTPException(
+            status_code=403,
+            detail="El administrador no tiene una sede asignada",
+        )
+    return current_admin
