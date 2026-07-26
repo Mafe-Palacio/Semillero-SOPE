@@ -90,64 +90,74 @@ class PuntoEntregaCRUD:
         return query.order_by(PuntoEntrega.nombre).offset(skip).limit(limit).all()
 
     def obtener_puntos_entrega_por_tipo(
-        self, sede_id: UUID, tipo: str, skip: int = 0, limit: int = 100
+        self,
+        tipo: str,
+        sede_id: Optional[UUID] = None,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[PuntoEntrega]:
         """
-        Obtiene los puntos de entrega de una sede filtrados por su tipo.
+        Obtiene puntos de entrega filtrados por tipo. Si se indica sede_id,
+        filtra además dentro de esa sede.
         """
-        return (
-            self.db.query(PuntoEntrega)
-            .filter(PuntoEntrega.sede_id == sede_id, PuntoEntrega.tipo == tipo)
-            .order_by(PuntoEntrega.nombre)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        query = self.db.query(PuntoEntrega).filter(PuntoEntrega.tipo == tipo)
+        if sede_id:
+            query = query.filter(PuntoEntrega.sede_id == sede_id)
+        return query.order_by(PuntoEntrega.nombre).offset(skip).limit(limit).all()
 
     def obtener_puntos_entrega_por_nombre(
-        self, nombre: str, skip: int = 0, limit: int = 100
+        self,
+        nombre: str,
+        sede_id: Optional[UUID] = None,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[PuntoEntrega]:
         """
-        Busca puntos de entrega que contengan el texto ingresado en el nombre.
+        Busca puntos de entrega que contengan el texto ingresado en el
+        nombre. Si se indica sede_id, filtra además dentro de esa sede.
         """
-        return (
-            self.db.query(PuntoEntrega)
-            .filter(PuntoEntrega.nombre.ilike(f"%{nombre}%"))
-            .order_by(PuntoEntrega.nombre)
-            .offset(skip)
-            .limit(limit)
-            .all()
+        query = self.db.query(PuntoEntrega).filter(
+            PuntoEntrega.nombre.ilike(f"%{nombre}%")
         )
+        if sede_id:
+            query = query.filter(PuntoEntrega.sede_id == sede_id)
+        return query.order_by(PuntoEntrega.nombre).offset(skip).limit(limit).all()
 
     def obtener_puntos_entrega_por_activa(
-        self, activa: bool, skip: int = 0, limit: int = 100
+        self,
+        activa: bool,
+        sede_id: Optional[UUID] = None,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[PuntoEntrega]:
         """
         Obtiene puntos de entrega según su estado (activos o inactivos).
+        Si se indica sede_id, filtra además dentro de esa sede.
         """
-        return (
-            self.db.query(PuntoEntrega)
-            .filter(PuntoEntrega.activa == activa)
-            .order_by(PuntoEntrega.nombre)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        query = self.db.query(PuntoEntrega).filter(PuntoEntrega.activa == activa)
+        if sede_id:
+            query = query.filter(PuntoEntrega.sede_id == sede_id)
+        return query.order_by(PuntoEntrega.nombre).offset(skip).limit(limit).all()
 
     def obtener_puntos_entrega_por_rango_creacion(
         self,
         fecha_inicio: datetime,
         fecha_fin: datetime,
+        sede_id: Optional[UUID] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> List[PuntoEntrega]:
         """
-        Obtiene puntos de entrega creados entre dos fechas.
+        Obtiene puntos de entrega creados entre dos fechas. Si se indica
+        sede_id, filtra además dentro de esa sede.
         """
+        query = self.db.query(PuntoEntrega).filter(
+            PuntoEntrega.fecha_creacion.between(fecha_inicio, fecha_fin)
+        )
+        if sede_id:
+            query = query.filter(PuntoEntrega.sede_id == sede_id)
         return (
-            self.db.query(PuntoEntrega)
-            .filter(PuntoEntrega.fecha_creacion.between(fecha_inicio, fecha_fin))
-            .order_by(PuntoEntrega.fecha_creacion.desc())
+            query.order_by(PuntoEntrega.fecha_creacion.desc())
             .offset(skip)
             .limit(limit)
             .all()
@@ -157,16 +167,21 @@ class PuntoEntregaCRUD:
         self,
         fecha_inicio: datetime,
         fecha_fin: datetime,
+        sede_id: Optional[UUID] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> List[PuntoEntrega]:
         """
-        Obtiene puntos de entrega modificados entre dos fechas.
+        Obtiene puntos de entrega modificados entre dos fechas. Si se indica
+        sede_id, filtra además dentro de esa sede.
         """
+        query = self.db.query(PuntoEntrega).filter(
+            PuntoEntrega.fecha_edicion.between(fecha_inicio, fecha_fin)
+        )
+        if sede_id:
+            query = query.filter(PuntoEntrega.sede_id == sede_id)
         return (
-            self.db.query(PuntoEntrega)
-            .filter(PuntoEntrega.fecha_edicion.between(fecha_inicio, fecha_fin))
-            .order_by(PuntoEntrega.fecha_edicion.desc())
+            query.order_by(PuntoEntrega.fecha_edicion.desc())
             .offset(skip)
             .limit(limit)
             .all()
