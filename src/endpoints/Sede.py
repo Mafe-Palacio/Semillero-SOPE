@@ -210,7 +210,7 @@ async def actualizar_sede(
 
 
 @router.delete("/{sede_id}", response_model=RespuestaAPI)
-async def eliminar_sede(
+async def desactivar_sede(
     sede_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
