@@ -1,7 +1,7 @@
 from uuid import UUID
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from src.entities.AunditoriaLog import AuditLog, AccionAuditoria
+from src.entities.AuditoriaLog import AuditLog, AccionAuditoria
 
 
 class AuditLogCRUD:
