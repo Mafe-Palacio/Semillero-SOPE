@@ -5,7 +5,7 @@ POST /auth/verificar-registro
 
 import traceback
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from src.core.auth import CurrentUser, create_access_token
@@ -19,6 +19,7 @@ from src.schemas.AuthSchema import (
     TokenResponse,
     VerificarRegistroRequest,
 )
+from src.utils.notifications import NotificationDispatcher
 from src.utils.security import generar_codigo_otp, hash_password
 
 router = APIRouter()
@@ -57,6 +58,7 @@ def _concatenar_dominio(
 )
 async def registrar_usuario(
     data: RegistroRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Crea el usuario con is_verified=False y despacha el código OTP de registro."""
@@ -83,9 +85,13 @@ async def registrar_usuario(
             tipo="REGISTRO",
         )
 
-        # TODO: integrar envío real por correo (Notification Dispatcher / SMTP).
-        # Se imprime aquí solo para desarrollo local mientras no hay proveedor SMTP conectado.
-        print(f"[DEV] Código OTP de registro para {correo}: {codigo}")
+        # Se envía en segundo plano para no bloquear la respuesta HTTP
+        # mientras el SMTP responde; un fallo de correo se registra en
+        # logs pero no impide que el registro ya guardado sea exitoso.
+        dispatcher = NotificationDispatcher()
+        background_tasks.add_task(
+            dispatcher.enviar_otp_registro, correo=correo, codigo=codigo
+        )
 
         return RegistroResponse(usuario_id=usuario.usuario_id, correo=correo)
 
