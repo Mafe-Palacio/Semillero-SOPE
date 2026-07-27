@@ -267,6 +267,109 @@ class PublicacionEncontradoCRUD:
             .all()
         )
 
+    def buscar_publicaciones_encontradas_por_sede_hallazgo(
+        self,
+        sede_id: UUID,
+        categoria: Optional[str] = None,
+        solo_aprobadas: bool = True,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[PublicacionEncontrado]:
+        """
+        Búsqueda pública: objetos encontrados en una sede, filtrando en la
+        base de datos (no en Python) para que skip/limit paginen correcto.
+        """
+        query = (
+            self.db.query(PublicacionEncontrado)
+            .join(
+                Ubicacion,
+                PublicacionEncontrado.lugar_hallazgo_id == Ubicacion.ubicacion_id,
+            )
+            .filter(Ubicacion.sede_id == sede_id)
+        )
+        if solo_aprobadas:
+            query = query.filter(PublicacionEncontrado.estado == "APROBADA")
+        if categoria:
+            query = query.filter(PublicacionEncontrado.categoria == categoria)
+
+        return (
+            query.order_by(PublicacionEncontrado.fecha_publicacion.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def obtener_publicaciones_encontradas_admin(
+        self,
+        sede_id: UUID,
+        usuario_id: Optional[UUID] = None,
+        categoria: Optional[str] = None,
+        estado: Optional[str] = None,
+        lugar_hallazgo_id: Optional[UUID] = None,
+        puntoEntrega_id: Optional[UUID] = None,
+        eliminacion_solicitada: Optional[bool] = None,
+        fecha_hallazgo_desde: Optional[date] = None,
+        fecha_hallazgo_hasta: Optional[date] = None,
+        fecha_edicion_desde: Optional[datetime] = None,
+        fecha_edicion_hasta: Optional[datetime] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[PublicacionEncontrado]:
+        """
+        Listado administrativo: `sede_id` SIEMPRE se aplica sobre el punto
+        de ENTREGA (join con PuntoEntrega) — es la bandeja de la
+        administradora que custodia el objeto, sin importar en qué sede
+        se encontró originalmente. El resto de parámetros se combinan
+        libremente entre sí (AND).
+        """
+        query = (
+            self.db.query(PublicacionEncontrado)
+            .join(
+                PuntoEntrega,
+                PublicacionEncontrado.lugar_entrega_fisica_id
+                == PuntoEntrega.puntoEntrega_id,
+            )
+            .filter(PuntoEntrega.sede_id == sede_id)
+        )
+
+        if usuario_id:
+            query = query.filter(PublicacionEncontrado.usuario_id == usuario_id)
+        if categoria:
+            query = query.filter(PublicacionEncontrado.categoria == categoria)
+        if estado:
+            query = query.filter(PublicacionEncontrado.estado == estado)
+        if lugar_hallazgo_id:
+            query = query.filter(
+                PublicacionEncontrado.lugar_hallazgo_id == lugar_hallazgo_id
+            )
+        if puntoEntrega_id:
+            query = query.filter(
+                PublicacionEncontrado.lugar_entrega_fisica_id == puntoEntrega_id
+            )
+        if eliminacion_solicitada is not None:
+            query = query.filter(
+                PublicacionEncontrado.eliminacion_solicitada == eliminacion_solicitada
+            )
+        if fecha_hallazgo_desde and fecha_hallazgo_hasta:
+            query = query.filter(
+                PublicacionEncontrado.fecha_hallazgo.between(
+                    fecha_hallazgo_desde, fecha_hallazgo_hasta
+                )
+            )
+        if fecha_edicion_desde and fecha_edicion_hasta:
+            query = query.filter(
+                PublicacionEncontrado.fecha_edicion.between(
+                    fecha_edicion_desde, fecha_edicion_hasta
+                )
+            )
+
+        return (
+            query.order_by(PublicacionEncontrado.fecha_publicacion.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
     def aprobar_publicacion_encontrada(
         self, publicacionEncontrado_id: UUID
     ) -> Optional[PublicacionEncontrado]:
