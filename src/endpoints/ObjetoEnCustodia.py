@@ -4,7 +4,7 @@ Endpoint de ObjetoEnCustodia
 
 import traceback
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -134,7 +134,6 @@ async def obtener_catalogo_publico(
 
 @router.get("/", response_model=List[ObjetoEnCustodiaResponse])
 async def obtener_todos_objetos_custodia(
-    sede: Optional[UUID] = Query(None, description="Filtrar por sede"),
     punto_entrega: Optional[UUID] = Query(
         None, description="Filtrar por punto de entrega"
     ),
@@ -167,66 +166,41 @@ async def obtener_todos_objetos_custodia(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin_con_sede),
 ):
     """
-    Listado administrativo de objetos en custodia (incluye detalles_internos).
-
-    Orden de precedencia si mandan varios filtros a la vez:
-    rango de ingreso > rango de edición > publicación > disponibles >
-    en_proceso_validacion > estado > categoria > punto_entrega > sede.
+    Listado administrativo de objetos en custodia (incluye detalles_internos),
+    SIEMPRE acotado a la sede del admin autenticado. Todos los filtros se
+    combinan libremente entre sí.
     """
     try:
         crud = ObjetoEnCustodiaCRUD(db)
 
-        if ingreso_desde and ingreso_hasta:
-            return crud.obtener_objetos_custodia_por_rango_ingreso(
-                fecha_inicio=ingreso_desde,
-                fecha_fin=ingreso_hasta,
-                skip=skip,
-                limit=limit,
-            )
-
-        if edicion_desde and edicion_hasta:
-            return crud.obtener_objetos_custodia_por_rango_edicion(
-                fecha_inicio=edicion_desde,
-                fecha_fin=edicion_hasta,
-                skip=skip,
-                limit=limit,
-            )
-
         if publicacion:
             objeto = crud.obtener_objeto_custodia_por_publicacion(publicacion)
-            return [objeto] if objeto else []
-
-        if disponibles:
-            return crud.obtener_objetos_custodia_disponibles(skip=skip, limit=limit)
-
-        if en_proceso_validacion is not None:
-            return crud.obtener_objetos_custodia_por_en_proceso_validacion(
-                en_proceso_validacion=en_proceso_validacion, skip=skip, limit=limit
+            if not objeto:
+                return []
+            punto = PuntoEntregaCRUD(db).obtener_punto_entrega_por_id(
+                objeto.lugar_origen_id
             )
+            if not punto or punto.sede_id != current_admin.sede_id:
+                return []
+            return [objeto]
 
-        if estado:
-            return crud.obtener_objetos_custodia_por_estado(
-                estado=estado, skip=skip, limit=limit
-            )
-
-        if categoria:
-            return crud.obtener_objetos_custodia_por_categoria(
-                categoria=categoria, skip=skip, limit=limit
-            )
-
-        if punto_entrega:
-            return crud.obtener_objetos_custodia_por_punto_entrega(
-                puntoEntrega_id=punto_entrega, skip=skip, limit=limit
-            )
-
-        if sede:
-            return crud.obtener_objetos_custodia_por_sede(
-                sede_id=sede, skip=skip, limit=limit
-            )
-
-        return crud.obtener_objetos_custodia(skip=skip, limit=limit)
+        return crud.obtener_objetos_custodia_admin(
+            sede_id=current_admin.sede_id,
+            punto_entrega_id=punto_entrega,
+            estado=estado,
+            categoria=categoria,
+            disponibles=disponibles,
+            en_proceso_validacion=en_proceso_validacion,
+            ingreso_desde=ingreso_desde,
+            ingreso_hasta=ingreso_hasta,
+            edicion_desde=edicion_desde,
+            edicion_hasta=edicion_hasta,
+            skip=skip,
+            limit=limit,
+        )
 
     except Exception as e:
         traceback.print_exc()
@@ -236,11 +210,21 @@ async def obtener_todos_objetos_custodia(
         )
 
 
-@router.get("/{objetoEnCustodia_id}", response_model=ObjetoEnCustodiaResponse)
+@router.get(
+    "/{objetoEnCustodia_id}",
+    response_model=Union[ObjetoEnCustodiaResponse, ObjetoEnCustodiaPublico],
+)
 async def obtener_objeto_custodia(
     objetoEnCustodia_id: UUID,
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
+    """
+    Un ADMIN de la sede dueña del objeto ve el detalle completo
+    (incluye detalles_internos). Cualquier otro usuario solo lo ve si
+    está en estado disponible para el catálogo público (HU01), y sin
+    los campos administrativos.
+    """
     try:
         crud = ObjetoEnCustodiaCRUD(db)
         objeto = crud.obtener_objeto_custodia_por_id(objetoEnCustodia_id)
@@ -251,7 +235,20 @@ async def obtener_objeto_custodia(
                 detail="Objeto en custodia no encontrado",
             )
 
-        return objeto
+        if current_user.rol == "ADMIN" and current_user.sede_id is not None:
+            punto = PuntoEntregaCRUD(db).obtener_punto_entrega_por_id(
+                objeto.lugar_origen_id
+            )
+            if punto and punto.sede_id == current_user.sede_id:
+                return ObjetoEnCustodiaResponse.model_validate(objeto)
+
+        if objeto.estado == "EN_CUSTODIA" and not objeto.en_proceso_validacion:
+            return ObjetoEnCustodiaPublico.model_validate(objeto)
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Objeto en custodia no encontrado",
+        )
 
     except HTTPException:
         raise
