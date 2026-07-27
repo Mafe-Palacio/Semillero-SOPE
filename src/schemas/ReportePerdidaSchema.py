@@ -53,8 +53,9 @@ class ReportePerdidaCreate(ReportePerdidaBase):
 
 
 class ReportePerdidaUpdate(BaseModel):
-    """Campos permitidos para la edición parcial realizada por el usuario."""
+    """Campos permitidos para la edición administrativa (HU07)."""
 
+    categoria: Optional[CategoriaObjeto] = None
     descripcion: Optional[str] = None
     imagen_url: Optional[str] = None
 
@@ -64,6 +65,13 @@ class ReportePerdidaModeracion(BaseModel):
 
     estado: EstadoPublicacion
     motivo_rechazo: Optional[str] = None
+
+
+class ReportePerdidaResolverEliminacion(BaseModel):
+    """Resuelve la solicitud de eliminación hecha por el usuario dueño del reporte."""
+
+    aprobar: bool
+    motivo: Optional[str] = None
 
 
 class ReportePerdidaResponse(ReportePerdidaBase):
