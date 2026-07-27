@@ -13,15 +13,28 @@ from fastapi.responses import Response
 
 from src.database.config import create_tables
 
-# Importamos los routers que creamos juntos
+# Routers de tu compañera
 from src.endpoints import (
     ActaEntrega,
     AuditoriaLog,
     PosibleCoincidencia,
     Reclamos,
     RespuestSeguridad,
-    Reclamos,
 )
+
+# Routers propios
+from src.endpoints import (
+    CodigoVerificacion,
+    ObjetoEnCustodia,
+    PreguntaSeguridad,
+    PublicacionEncontrado,
+    PuntoEntrega,
+    ReportePerdida,
+    Sede,
+    Ubicacion,
+    Usuario,
+)
+from src.endpoints.auth import router as auth_router
 
 # Importaciones de configuración y manejo de errores (basado en tu estructura)
 from src.core.config import get_settings
@@ -33,7 +46,19 @@ from src.core.error_handlers import (
     generic_exception_handler,
 )
 
-# Importar modelos para que Base.metadata los conozca al crear las tablas
+# Importar TODOS los modelos para que Base.metadata los conozca al crear
+# las tablas (create_tables() es un no-op si ya existen en Supabase, pero
+# igual necesita conocer las clases para no fallar por referencias FK
+# cruzadas entre entidades de distintos módulos).
+import src.entities.Sede  # noqa: F401
+import src.entities.Ubicacion  # noqa: F401
+import src.entities.PuntoEntrega  # noqa: F401
+import src.entities.Usuario  # noqa: F401
+import src.entities.CodigoVerificacion  # noqa: F401
+import src.entities.ReportePerdida  # noqa: F401
+import src.entities.PublicacionEncontrado  # noqa: F401
+import src.entities.ObjetoEnCustodia  # noqa: F401
+import src.entities.PreguntaSeguridad  # noqa: F401
 import src.entities.Reclamos  # noqa: F401
 import src.entities.RespuestaSeguridad  # noqa: F401
 import src.entities.PosibleCoincidencia  # noqa: F401
@@ -97,14 +122,26 @@ app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
-# Registrar los Routers (Endpoints) de nuestro proyecto
+# Autenticación primero (no requiere token, registro/login/recuperación)
+app.include_router(auth_router)
+
+
 app.include_router(Reclamos.router)
 app.include_router(RespuestSeguridad.router)
 app.include_router(PosibleCoincidencia.router)
 app.include_router(ActaEntrega.router)
 app.include_router(AuditoriaLog.router)
 
-# Si tienes routers de Usuarios o ObjetosEnCustodia, agrégalos aquí también.
+# Routers propios
+app.include_router(Sede.router)
+app.include_router(Ubicacion.router)
+app.include_router(PuntoEntrega.router)
+app.include_router(Usuario.router)
+app.include_router(CodigoVerificacion.router)
+app.include_router(ReportePerdida.router)
+app.include_router(PublicacionEncontrado.router)
+app.include_router(ObjetoEnCustodia.router)
+app.include_router(PreguntaSeguridad.router)
 
 
 @app.get("/")
