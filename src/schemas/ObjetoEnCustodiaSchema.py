@@ -45,12 +45,14 @@ class ObjetoEnCustodiaCreate(ObjetoEnCustodiaBase):
 
 
 class ObjetoEnCustodiaUpdate(BaseModel):
-    """Campos editables para la gestión de inventario y estados por administración."""
+    """Campos editables por administración (corrección de datos ya
+    registrados). El `estado` NO se edita aquí — tiene endpoints propios
+    con reglas de negocio (bloquear/liberar/archivar-sin-dueno)."""
 
+    categoria: Optional[CategoriaObjeto] = None
     descripcion: Optional[str] = None
+    imagen_url: Optional[str] = None
     detalles_internos: Optional[str] = None
-    estado: Optional[EstadoCustodia] = None
-    fecha_vencimiento_alerta: Optional[date] = None
 
 
 class ObjetoEnCustodiaResponse(ObjetoEnCustodiaBase):
