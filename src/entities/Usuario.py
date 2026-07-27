@@ -67,7 +67,9 @@ class Usuario(Base):
     is_blocked = Column(Boolean, nullable=False, default=False)
     motivo_bloqueo = Column(String(500), nullable=True)
 
-    fecha_creacion = Column(DateTime(timezone=True), server_default=func.now())
+    fecha_creacion = Column(
+        "fecha_registro", DateTime(timezone=True), server_default=func.now()
+    )
     fecha_edicion = Column(DateTime(timezone=True), onupdate=func.now())
 
     usuario_edita_id = Column(
