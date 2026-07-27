@@ -233,6 +233,66 @@ class ReportePerdidaCRUD:
             .all()
         )
 
+    def obtener_reportes_perdida_admin(
+        self,
+        sede_id: UUID,
+        usuario_id: Optional[UUID] = None,
+        categoria: Optional[str] = None,
+        estado: Optional[str] = None,
+        lugar_perdida_id: Optional[UUID] = None,
+        eliminacion_solicitada: Optional[bool] = None,
+        fecha_perdida_desde: Optional[date] = None,
+        fecha_perdida_hasta: Optional[date] = None,
+        fecha_edicion_desde: Optional[datetime] = None,
+        fecha_edicion_hasta: Optional[datetime] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[ReportePerdida]:
+        """
+        Listado administrativo: `sede_id` SIEMPRE se aplica (join con
+        Ubicacion) porque un admin nunca debe ver reportes de otra sede,
+        sin importar qué otros filtros use. El resto de parámetros se
+        combinan libremente entre sí (AND), a diferencia de los métodos
+        `obtener_reportes_perdida_por_*` que son de un solo filtro.
+        """
+        query = (
+            self.db.query(ReportePerdida)
+            .join(Ubicacion, ReportePerdida.lugar_perdida_id == Ubicacion.ubicacion_id)
+            .filter(Ubicacion.sede_id == sede_id)
+        )
+
+        if usuario_id:
+            query = query.filter(ReportePerdida.usuario_id == usuario_id)
+        if categoria:
+            query = query.filter(ReportePerdida.categoria == categoria)
+        if estado:
+            query = query.filter(ReportePerdida.estado == estado)
+        if lugar_perdida_id:
+            query = query.filter(ReportePerdida.lugar_perdida_id == lugar_perdida_id)
+        if eliminacion_solicitada is not None:
+            query = query.filter(
+                ReportePerdida.eliminacion_solicitada == eliminacion_solicitada
+            )
+        if fecha_perdida_desde and fecha_perdida_hasta:
+            query = query.filter(
+                ReportePerdida.fecha_perdida.between(
+                    fecha_perdida_desde, fecha_perdida_hasta
+                )
+            )
+        if fecha_edicion_desde and fecha_edicion_hasta:
+            query = query.filter(
+                ReportePerdida.fecha_edicion.between(
+                    fecha_edicion_desde, fecha_edicion_hasta
+                )
+            )
+
+        return (
+            query.order_by(ReportePerdida.fecha_publicacion.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
     def aprobar_reporte_perdida(
         self, reporte_perdida_id: UUID
     ) -> Optional[ReportePerdida]:
