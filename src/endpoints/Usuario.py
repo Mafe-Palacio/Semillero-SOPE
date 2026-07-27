@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from src.core.auth import get_current_user, get_current_admin
@@ -21,6 +21,7 @@ from src.schemas.UsuarioSchema import (
     UsuarioUpdate,
 )
 from src.schemas.schemas import RespuestaAPI
+from src.utils.notifications import NotificationDispatcher
 from src.utils.security import hash_password, verify_password
 
 router = APIRouter(
@@ -354,6 +355,7 @@ async def editar_usuario(
 async def moderar_usuario(
     usuario_id: UUID,
     data: UsuarioAdminUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
 ):
@@ -383,6 +385,15 @@ async def moderar_usuario(
                 motivo_bloqueo=data.motivo_bloqueo,
                 usuario_edita_id=current_admin.id_usuario,
             )
+
+            # HU06: notificar al usuario que su cuenta fue bloqueada.
+            dispatcher = NotificationDispatcher()
+            background_tasks.add_task(
+                dispatcher.enviar_notificacion_bloqueo,
+                correo=usuario.correo,
+                motivo=data.motivo_bloqueo,
+            )
+
         elif data.is_blocked is False:
             crud.desbloquear_usuario(
                 usuario_id=usuario_id, usuario_edita_id=current_admin.id_usuario
