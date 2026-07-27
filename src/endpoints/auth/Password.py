@@ -5,7 +5,7 @@ POST /auth/resetear-password
 
 import traceback
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from src.crud.CodigoVerificacion_crud import CodigoVerificacionCRUD
@@ -13,6 +13,7 @@ from src.crud.Usuario_crud import UsuarioCRUD
 from src.database.config import get_db
 from src.schemas.AuthSchema import RecuperarPasswordRequest, ResetearPasswordRequest
 from src.schemas.schemas import RespuestaAPI
+from src.utils.notifications import NotificationDispatcher
 from src.utils.security import generar_codigo_otp, hash_password
 
 router = APIRouter()
@@ -21,6 +22,7 @@ router = APIRouter()
 @router.post("/recuperar-password", response_model=RespuestaAPI)
 async def recuperar_password(
     data: RecuperarPasswordRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Despacha un código de recuperación al correo si existe una cuenta
@@ -38,8 +40,12 @@ async def recuperar_password(
                 tipo="RECUPERACION_PASSWORD",
                 minutos_expiracion=15,
             )
-            # TODO: integrar envío real por correo (Notification Dispatcher / SMTP).
-            print(f"[DEV] Código de recuperación para {data.correo}: {codigo}")
+            dispatcher = NotificationDispatcher()
+            background_tasks.add_task(
+                dispatcher.enviar_recuperacion_password,
+                correo=data.correo,
+                codigo=codigo,
+            )
 
         return RespuestaAPI(
             mensaje="Si el correo está registrado, recibirás un código de recuperación.",
