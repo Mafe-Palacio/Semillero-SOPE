@@ -4,41 +4,17 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from src.entities.ActaEntrega import ActaEntrega
+from src.entities.Reclamo import Reclamo
+from src.entities.ObjetoEnCustodia import ObjetoEnCustodia
+from src.entities.PuntoEntrega import PuntoEntrega
 
 
 class ActaEntregaCRUD:
-    """Clase encargada de las operaciones de base de datos para ActaEntrega."""
-
     def __init__(self, db: Session):
         self.db = db
 
-    def crear_acta(
-        self,
-        reclamo_id: UUID,
-        nombre_reclamante: str,
-        cedula_reclamante: str,
-        correo_reclamante: str,
-        celular_reclamante: str,
-        carnet_reclamante: str,
-        firma_url: str,
-        validacion_verbal: bool,
-        procesada_por_admin_id: UUID,
-    ) -> ActaEntrega:
-        """Crea un registro de acta de entrega en la base de datos."""
-
-        nueva_acta = ActaEntrega(
-            reclamo_id=reclamo_id,
-            nombre_reclamante=nombre_reclamante,
-            cedula_reclamante=cedula_reclamante,
-            correo_reclamante=correo_reclamante,
-            celular_reclamante=celular_reclamante,
-            carnet_reclamante=carnet_reclamante,
-            firma_url=firma_url,
-            validacion_verbal=validacion_verbal,
-            procesada_por_admin_id=procesada_por_admin_id,
-            fecha_hora_entrega=datetime.utcnow(),
-        )
-
+    def crear_acta(self, **kwargs) -> ActaEntrega:
+        nueva_acta = ActaEntrega(**kwargs, fecha_hora_entrega=datetime.utcnow())
         try:
             self.db.add(nueva_acta)
             self.db.commit()
@@ -48,30 +24,26 @@ class ActaEntregaCRUD:
             self.db.rollback()
             raise ValueError("Ya existe un acta de entrega para este reclamo.")
 
-    def obtener_acta_por_id(self, actaEntrega_id: UUID) -> Optional[ActaEntrega]:
-        """Busca un acta usando su identificador único."""
-        return (
+    def obtener_acta_de_sede_o_404(
+        self, actaEntrega_id: UUID, sede_id: UUID
+    ) -> ActaEntrega:
+        acta = (
             self.db.query(ActaEntrega)
-            .filter(ActaEntrega.actaEntrega_id == actaEntrega_id)
+            .join(Reclamo, ActaEntrega.reclamo_id == Reclamo.reclamo_id)
+            .join(
+                ObjetoEnCustodia,
+                Reclamo.objetoEnCustodia_id == ObjetoEnCustodia.objetoEnCustodia_id,
+            )
+            .join(
+                PuntoEntrega,
+                ObjetoEnCustodia.lugar_origen_id == PuntoEntrega.puntoEntrega_id,
+            )
+            .filter(
+                ActaEntrega.actaEntrega_id == actaEntrega_id,
+                PuntoEntrega.sede_id == sede_id,
+            )
             .first()
         )
-
-    def obtener_acta_por_reclamo(self, reclamo_id: UUID) -> Optional[ActaEntrega]:
-        """Obtiene el acta correspondiente a un reclamo específico (1:1)."""
-        return (
-            self.db.query(ActaEntrega)
-            .filter(ActaEntrega.reclamo_id == reclamo_id)
-            .first()
-        )
-
-    def obtener_todas_las_actas(
-        self, skip: int = 0, limit: int = 100
-    ) -> List[ActaEntrega]:
-        """Obtiene un historial de todas las actas registradas en el sistema."""
-        return (
-            self.db.query(ActaEntrega)
-            .order_by(ActaEntrega.fecha_hora_entrega.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        if not acta:
+            raise ValueError("Acta no encontrada o no pertenece a tu sede.")
+        return acta

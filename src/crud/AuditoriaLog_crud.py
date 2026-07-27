@@ -19,32 +19,23 @@ class AuditLogCRUD:
         detalle: Optional[str] = None,
     ) -> AuditLog:
         """Crea un nuevo registro inmutable de auditoría."""
-
         nuevo_log = AuditLog(
             entidad=entidad,
             entidad_id=entidad_id,
             accion=accion,
             usuario_id=usuario_id,
             detalle=detalle,
-            # La fecha se asigna automáticamente por la entidad
         )
-
         self.db.add(nuevo_log)
         self.db.commit()
         self.db.refresh(nuevo_log)
         return nuevo_log
 
-    def obtener_log_por_id(self, auditLog_id: UUID) -> Optional[AuditLog]:
-        """Busca un log específico por su ID."""
-        return (
-            self.db.query(AuditLog).filter(AuditLog.auditLog_id == auditLog_id).first()
-        )
-
     def obtener_logs(self, skip: int = 0, limit: int = 100) -> List[AuditLog]:
         """Obtiene un historial paginado de todos los eventos del sistema."""
         return (
             self.db.query(AuditLog)
-            .order_by(AuditLog.fecha.desc())  # Los más recientes primero
+            .order_by(AuditLog.fecha.desc())
             .offset(skip)
             .limit(limit)
             .all()
@@ -57,6 +48,6 @@ class AuditLogCRUD:
         return (
             self.db.query(AuditLog)
             .filter(AuditLog.entidad == entidad, AuditLog.entidad_id == entidad_id)
-            .order_by(AuditLog.fecha.asc())  # Orden cronológico
+            .order_by(AuditLog.fecha.asc())
             .all()
         )
