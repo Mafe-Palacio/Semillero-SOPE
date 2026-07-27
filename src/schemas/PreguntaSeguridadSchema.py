@@ -1,11 +1,9 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, field_validator
 
 MIN_PREGUNTAS = 1
-MAX_PREGUNTAS = (
-    10  # tope de sanidad; la administradora decide cuántas dentro de este rango
-)
+MAX_PREGUNTAS = 10  # la administradora decide cuántas dentro de este rango
 
 
 class PreguntaSeguridadBase(BaseModel):
@@ -13,21 +11,12 @@ class PreguntaSeguridadBase(BaseModel):
 
     pregunta: str
     respuesta_correcta: str
-    orden: int
-
-    @field_validator("orden")
-    @classmethod
-    def orden_valido(cls, v: int) -> int:
-        """Valida que la posición de la pregunta esté en el rango permitido (1 a 3)."""
-        if not MIN_PREGUNTAS <= v <= MAX_PREGUNTAS:
-            raise ValueError(
-                f"El orden de la pregunta debe estar entre {MIN_PREGUNTAS} y {MAX_PREGUNTAS}"
-            )
-        return v
 
 
 class PreguntaSeguridadCreate(PreguntaSeguridadBase):
-    """Datos requeridos para la creación individual de una pregunta de seguridad."""
+    """Datos requeridos para la creación individual de una pregunta de
+    seguridad. `orden` no se recibe aquí: el CRUD lo asigna automáticamente
+    según la posición dentro de la lista enviada en el bulk-create."""
 
     pass
 
@@ -51,11 +40,19 @@ class PreguntasSeguridadBulkCreate(BaseModel):
         return v
 
 
+class PreguntaSeguridadEdit(BaseModel):
+    """Payload para corregir el texto/respuesta de una pregunta puntual."""
+
+    pregunta: Optional[str] = None
+    respuesta_correcta: Optional[str] = None
+
+
 class PreguntaSeguridadResponse(PreguntaSeguridadBase):
     """Esquema de respuesta administrativo que incluye la respuesta correcta."""
 
     preguntaSeguridad_id: UUID
     objetoEnCustodia_id: UUID
+    orden: int
 
     model_config = ConfigDict(from_attributes=True)
 
