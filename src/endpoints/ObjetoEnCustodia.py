@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional, Union
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from src.core.auth import (
@@ -15,7 +15,9 @@ from src.core.auth import (
     get_current_user,
 )
 from src.crud.ObjetoEnCustodia_crud import ObjetoEnCustodiaCRUD
+from src.crud.PublicacionEncontrado_crud import PublicacionEncontradoCRUD
 from src.crud.PuntoEntrega_crud import PuntoEntregaCRUD
+from src.crud.Usuario_crud import UsuarioCRUD
 from src.database.config import get_db
 from src.schemas.ObjetoEnCustodiaSchema import (
     ObjetoEnCustodiaCreate,
@@ -24,6 +26,7 @@ from src.schemas.ObjetoEnCustodiaSchema import (
     ObjetoEnCustodiaUpdate,
 )
 from src.schemas.schemas import RespuestaAPI
+from src.utils.notifications import NotificationDispatcher
 
 router = APIRouter(
     prefix="/objetos-custodia",
@@ -350,16 +353,37 @@ async def liberar_objeto_validacion(
 )
 async def marcar_objeto_reclamado(
     objetoEnCustodia_id: UUID,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
 ):
     """Normalmente lo dispara el cierre del Acta de Entrega; se deja
     disponible también para corrección manual administrativa."""
     try:
-        _, crud = _obtener_objeto_de_sede_o_404(
+        objeto, crud = _obtener_objeto_de_sede_o_404(
             db, objetoEnCustodia_id, current_admin.sede_id
         )
-        return crud.marcar_objeto_reclamado(objetoEnCustodia_id)
+        objeto_actualizado = crud.marcar_objeto_reclamado(objetoEnCustodia_id)
+
+        # HU27: si el objeto vino de una publicación de un usuario (no fue
+        # ingresado directo por la admin), avisarle que su aporte sirvió.
+        if objeto.publicacionEncontrado_id:
+            publicacion = PublicacionEncontradoCRUD(
+                db
+            ).obtener_publicacion_encontrada_por_id(objeto.publicacionEncontrado_id)
+            if publicacion:
+                encontrador = UsuarioCRUD(db).obtener_usuario_por_id(
+                    publicacion.usuario_id
+                )
+                if encontrador:
+                    dispatcher = NotificationDispatcher()
+                    background_tasks.add_task(
+                        dispatcher.enviar_cierre_exitoso_encontrador,
+                        correo=encontrador.correo,
+                        descripcion_objeto=objeto.descripcion,
+                    )
+
+        return objeto_actualizado
 
     except HTTPException:
         raise
