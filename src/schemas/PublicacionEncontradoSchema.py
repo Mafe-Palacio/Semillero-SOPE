@@ -45,8 +45,9 @@ class PublicacionEncontradoCreate(PublicacionEncontradoBase):
 
 
 class PublicacionEncontradoUpdate(BaseModel):
-    """Campos permitidos para la edición parcial realizada por el usuario."""
+    """Campos permitidos para la edición administrativa (HU07)."""
 
+    categoria: Optional[CategoriaObjeto] = None
     descripcion: Optional[str] = None
     imagen_url: Optional[str] = None
 
@@ -56,6 +57,13 @@ class PublicacionEncontradoModeracion(BaseModel):
 
     estado: EstadoPublicacion
     motivo_rechazo: Optional[str] = None
+
+
+class PublicacionEncontradoResolverEliminacion(BaseModel):
+    """Resuelve la solicitud de eliminación hecha por el usuario dueño de la publicación."""
+
+    aprobar: bool
+    motivo: Optional[str] = None
 
 
 class PublicacionEncontradoResponse(PublicacionEncontradoBase):
