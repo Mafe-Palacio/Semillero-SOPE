@@ -1,6 +1,6 @@
 """
 Configuración de base de datos.
-- Producción/CI: usa DATABASE_URL (PostgreSQL/Neon).
+- Producción/CI: usa DATABASE_URL (PostgreSQL).
 - Desarrollo local: usa SQLite si DATABASE_URL no está definida.
 """
 
