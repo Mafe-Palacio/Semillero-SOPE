@@ -8,7 +8,11 @@ y password.py, no una entidad que el frontend consulte directamente.
 
 from fastapi import APIRouter
 
-from src.endpoints.auth import login, password, registro
+from src.endpoints.auth import (
+    Login as login,
+    Password as password,
+    Registro as registro,
+)
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
