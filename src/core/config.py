@@ -45,6 +45,14 @@ class Settings(BaseSettings):
         validation_alias="CORS_ORIGINS",
     )
 
+    # SMTP para el Notification Dispatcher (correos transaccionales: OTP,
+    # Smart Match, citas presenciales, cierre de reclamo, bloqueo de cuenta).
+    smtp_host: str = Field(default="smtp.gmail.com", validation_alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
+    smtp_user: str = Field(default="", validation_alias="SMTP_USER")
+    smtp_pass: str = Field(default="", validation_alias="SMTP_PASS")
+    smtp_from: str = Field(default="", validation_alias="SMTP_FROM")
+
     @field_validator("jwt_secret_key")
     @classmethod
     def jwt_secret_not_empty(cls, v: str) -> str:
