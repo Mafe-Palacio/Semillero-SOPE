@@ -19,6 +19,7 @@ from src.crud.PreguntaSeguridad_crud import PreguntaSeguridadCRUD
 from src.crud.PuntoEntrega_crud import PuntoEntregaCRUD
 from src.database.config import get_db
 from src.schemas.PreguntaSeguridadSchema import (
+    PreguntaSeguridadEdit,
     PreguntaSeguridadPublica,
     PreguntaSeguridadResponse,
     PreguntasSeguridadBulkCreate,
@@ -196,8 +197,7 @@ async def obtener_pregunta_seguridad(
 @router.put("/{preguntaSeguridad_id}", response_model=PreguntaSeguridadResponse)
 async def actualizar_pregunta_seguridad(
     preguntaSeguridad_id: UUID,
-    pregunta: str | None = None,
-    respuesta_correcta: str | None = None,
+    data: PreguntaSeguridadEdit,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
 ):
@@ -209,7 +209,7 @@ async def actualizar_pregunta_seguridad(
             db, preguntaSeguridad_id, current_admin.sede_id
         )
 
-        if pregunta is None and respuesta_correcta is None:
+        if data.pregunta is None and data.respuesta_correcta is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Debes enviar al menos un campo para actualizar",
@@ -217,8 +217,8 @@ async def actualizar_pregunta_seguridad(
 
         return crud.actualizar_pregunta_seguridad(
             preguntaSeguridad_id=preguntaSeguridad_id,
-            pregunta=pregunta,
-            respuesta_correcta=respuesta_correcta,
+            pregunta=data.pregunta,
+            respuesta_correcta=data.respuesta_correcta,
         )
 
     except HTTPException:
