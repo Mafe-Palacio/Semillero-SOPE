@@ -4,6 +4,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from src.entities.ObjetoEnCustodia import ObjetoEnCustodia
 from src.entities.PuntoEntrega import PuntoEntrega
+from src.entities.PuntoEntrega import PuntoEntrega
 
 DIAS_POR_VENCER = 150  # ~5 meses
 DIAS_SIN_DUENO = 180  # ~6 meses
@@ -230,6 +231,71 @@ class ObjetoEnCustodiaCRUD:
         return (
             self.db.query(ObjetoEnCustodia)
             .filter(ObjetoEnCustodia.en_proceso_validacion == en_proceso_validacion)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def obtener_objetos_custodia_admin(
+        self,
+        sede_id: UUID,
+        punto_entrega_id: Optional[UUID] = None,
+        publicacionEncontrado_id: Optional[UUID] = None,
+        estado: Optional[str] = None,
+        categoria: Optional[str] = None,
+        disponibles: Optional[bool] = None,
+        en_proceso_validacion: Optional[bool] = None,
+        ingreso_desde: Optional[date] = None,
+        ingreso_hasta: Optional[date] = None,
+        edicion_desde: Optional[datetime] = None,
+        edicion_hasta: Optional[datetime] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[ObjetoEnCustodia]:
+        """
+        Listado administrativo: `sede_id` SIEMPRE se aplica (join con
+        PuntoEntrega) porque un admin nunca debe ver objetos de otra sede.
+        El resto de filtros se combinan libremente entre sí (AND).
+        """
+        query = (
+            self.db.query(ObjetoEnCustodia)
+            .join(
+                PuntoEntrega,
+                ObjetoEnCustodia.lugar_origen_id == PuntoEntrega.puntoEntrega_id,
+            )
+            .filter(PuntoEntrega.sede_id == sede_id)
+        )
+
+        if punto_entrega_id:
+            query = query.filter(ObjetoEnCustodia.lugar_origen_id == punto_entrega_id)
+        if publicacionEncontrado_id:
+            query = query.filter(
+                ObjetoEnCustodia.publicacionEncontrado_id == publicacionEncontrado_id
+            )
+        if estado:
+            query = query.filter(ObjetoEnCustodia.estado == estado)
+        if categoria:
+            query = query.filter(ObjetoEnCustodia.categoria == categoria)
+        if disponibles:
+            query = query.filter(
+                ObjetoEnCustodia.estado == "EN_CUSTODIA",
+                ObjetoEnCustodia.en_proceso_validacion.is_(False),
+            )
+        if en_proceso_validacion is not None:
+            query = query.filter(
+                ObjetoEnCustodia.en_proceso_validacion == en_proceso_validacion
+            )
+        if ingreso_desde and ingreso_hasta:
+            query = query.filter(
+                ObjetoEnCustodia.fecha_ingreso.between(ingreso_desde, ingreso_hasta)
+            )
+        if edicion_desde and edicion_hasta:
+            query = query.filter(
+                ObjetoEnCustodia.fecha_edicion.between(edicion_desde, edicion_hasta)
+            )
+
+        return (
+            query.order_by(ObjetoEnCustodia.fecha_ingreso.desc())
             .offset(skip)
             .limit(limit)
             .all()
