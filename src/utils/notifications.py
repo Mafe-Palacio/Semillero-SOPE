@@ -131,6 +131,17 @@ class NotificationDispatcher:
             correo, "Tu objeto está listo para recoger — Sistema OPE ITM", cuerpo
         )
 
+        def enviar_correo_acta_entrega(self, correo: str, firma_url: str) -> bool:
+            cuerpo = f"""
+            <p>Se registró el acta de entrega de tu objeto.</p>
+            <  >Puedes consultar la firma/soporte aquí:</p>
+            <p><a href="{firma_url}">{firma_url}</a></p>
+            <p>Gracias por usar el Sistema de Objetos Perdidos y Encontrados del ITM.</p>"""
+
+        return self._enviar_correo(
+            correo, "Acta de entrega registrada — Sistema OPE ITM", cuerpo
+        )
+
     def enviar_cierre_exitoso_reclamante(
         self, correo: str, descripcion_objeto: str
     ) -> bool:

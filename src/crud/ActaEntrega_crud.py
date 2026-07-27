@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from src.entities.ActaEntrega import ActaEntrega
-from src.entities.Reclamo import Reclamo
+from src.entities.Reclamos import Reclamo
 from src.entities.ObjetoEnCustodia import ObjetoEnCustodia
 from src.entities.PuntoEntrega import PuntoEntrega
 

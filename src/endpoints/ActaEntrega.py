@@ -5,11 +5,11 @@ from sqlalchemy.orm import Session
 
 from src.core.auth import get_current_user
 from src.crud.ActaEntrega_crud import ActaEntregaCRUD
-from src.crud.Reclamo_crud import ReclamoCRUD
+from src.crud.Reclamos_crud import ReclamoCRUD
 from src.crud.ObjetoEnCustodia_crud import ObjetoEnCustodiaCRUD
 from src.database.config import get_db
 from src.schemas.ActaEntregaSchema import ActaEntregaCreate, ActaEntregaResponse
-from src.utils.notifications import dispatcher
+from src.utils.notifications import NotificationDispatcher
 
 router = APIRouter(
     prefix="/actas-entrega",
@@ -49,6 +49,7 @@ async def registrar_acta_entrega(
         objeto_crud = ObjetoEnCustodiaCRUD(db)
         objeto_crud.marcar_objeto_reclamado(reclamo.objetoEnCustodia_id)
 
+        dispatcher = NotificationDispatcher()
         background_tasks.add_task(
             dispatcher.enviar_correo_acta_entrega,
             acta_data.correo_reclamante,

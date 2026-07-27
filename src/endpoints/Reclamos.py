@@ -14,7 +14,7 @@ from src.schemas.schemas import RespuestaAPI
 from src.entities.Enums import EstadoReclamo
 
 # Importamos tu módulo de notificaciones
-from src.utils.notifications import dispatcher
+from src.utils.notifications import NotificationDispatcher
 
 router = APIRouter(
     prefix="/reclamos",

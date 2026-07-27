@@ -12,7 +12,7 @@ from src.schemas.PosibleCoincidenciaSchema import (
     PosibleCoincidenciaResponse,
     PosibleCoincidenciaUpdate,
 )
-from src.utils.notifications import dispatcher
+from src.utils.notifications import NotificationDispatcher
 
 router = APIRouter(
     prefix="/posibles-coincidencias",

@@ -12,12 +12,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
-import logging
+
+load_dotenv()
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
-logging.warning(
-    f"DATABASE_URL cargada: {DATABASE_URL[:30] if DATABASE_URL else 'NONE'}"
-)
+
 
 if not DATABASE_URL:
     db_path = Path(__file__).resolve().parents[2] / "dev.db"
