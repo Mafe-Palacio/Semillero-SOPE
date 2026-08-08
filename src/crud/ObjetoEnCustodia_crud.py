@@ -425,7 +425,7 @@ class ObjetoEnCustodiaCRUD:
         self.db.commit()
 
         return {
-            "marcados_por_vencer": len(candidatos_por_vencer),
+            "marcados_por_vencer": candidatos_por_vencer,
             "candidatos_a_archivar": candidatos_archivar,
         }
 
