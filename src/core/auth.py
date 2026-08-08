@@ -101,9 +101,23 @@ async def get_current_user(
 async def get_current_admin(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
-    """Exige rol ADMIN. Úsala en cualquier endpoint de escritura administrativa."""
-    if current_user.rol != "ADMIN":
+    """Exige rol ADMIN o SUPERADMIN. Úsala en cualquier endpoint de escritura
+    administrativa: SUPERADMIN hereda todos los permisos de ADMIN."""
+    if current_user.rol not in ("ADMIN", "SUPERADMIN"):
         raise HTTPException(status_code=403, detail="Requiere rol de administrador")
+    return current_user
+
+
+async def get_current_superadmin(
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """Exige rol SUPERADMIN exclusivamente. Úsala en endpoints donde ni
+    siquiera un ADMIN normal debe poder actuar — ej. reasignar la sede de
+    otro admin, o administrar cuentas de otros administradores."""
+    if current_user.rol != "SUPERADMIN":
+        raise HTTPException(
+            status_code=403, detail="Requiere rol de superadministrador"
+        )
     return current_user
 
 
