@@ -4,6 +4,7 @@ Ejecutar con: uvicorn main:app --reload
 """
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -93,6 +94,9 @@ app.add_middleware(
 
 
 # Configuración de Cabeceras de Seguridad
+DOCS_PATHS = ("/docs", "/redoc", "/openapi.json")
+
+
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
     response: Response = await call_next(request)
@@ -101,6 +105,12 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+
+    # Swagger/Redoc cargan su JS y CSS desde cdn.jsdelivr.net, no desde
+    # 'self' — si les aplicamos el CSP estricto de abajo, el navegador
+    # bloquea esos scripts y /docs queda en blanco. Se las excluimos.
+    if request.url.path.startswith(DOCS_PATHS):
+        return response
 
     # Nota: Agregué la URL de Supabase para que no te bloquee las imágenes
     response.headers["Content-Security-Policy"] = (
@@ -125,13 +135,6 @@ app.add_exception_handler(Exception, generic_exception_handler)
 # Autenticación primero (no requiere token, registro/login/recuperación)
 app.include_router(auth_router)
 
-
-app.include_router(Reclamos.router)
-app.include_router(RespuestSeguridad.router)
-app.include_router(PosibleCoincidencia.router)
-app.include_router(ActaEntrega.router)
-app.include_router(AuditoriaLog.router)
-
 # Routers propios
 app.include_router(Sede.router)
 app.include_router(Ubicacion.router)
@@ -143,11 +146,37 @@ app.include_router(PublicacionEncontrado.router)
 app.include_router(ObjetoEnCustodia.router)
 app.include_router(PreguntaSeguridad.router)
 
+app.include_router(Reclamos.router)
+app.include_router(RespuestSeguridad.router)
+app.include_router(PosibleCoincidencia.router)
+app.include_router(ActaEntrega.router)
+app.include_router(AuditoriaLog.router)
+
 
 @app.get("/")
 def inicio():
-    """Endpoint raíz para comprobar el estado de la API."""
+    """Endpoint raíz: estado de la API y guía rápida de uso."""
     return {
-        "success": True,
-        "data": {"mensaje": "API de Objetos Perdidos funcionando", "docs": "/docs"},
+        "mensaje": "API de Objetos Perdidos y Encontrados - ITM",
+        "version": app.version,
+        "descripcion": (
+            "Backend del sistema de gestión de objetos perdidos, encontrados "
+            "y reclamos de la sede Fraternidad."
+        ),
+        "documentacion": "Para probar los endpoints interactivamente, visita /docs",
+        "fechaServidor": datetime.now(timezone.utc).isoformat(),
+        "enlaces": {
+            "swagger": "/docs",
+            "redoc": "/redoc",
+            "openapi": "/openapi.json",
+        },
+        "uso": [
+            "POST /auth/registro - Crea una cuenta nueva (rol USER)",
+            "POST /auth/login - Inicia sesión y obtén el token JWT",
+            "En /docs, botón 'Authorize' (candado) - pega 'Bearer <tu_token>' "
+            "para probar los endpoints protegidos",
+            "GET /objetos-custodia/catalogo - Catálogo público sin autenticar",
+            "GET /sedes, /ubicaciones, /puntos-entrega - Datos base para "
+            "poder crear reportes/publicaciones de prueba",
+        ],
     }
