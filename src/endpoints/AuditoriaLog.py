@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.core.auth import get_current_user
+from src.core.auth import get_current_admin
 from src.crud.AuditoriaLog_crud import AuditLogCRUD
 from src.database.config import get_db
 from src.schemas.AuditoriaLogSchema import AuditLogResponse
@@ -11,7 +11,7 @@ from src.schemas.AuditoriaLogSchema import AuditLogResponse
 router = APIRouter(
     prefix="/auditoria",
     tags=["Auditoría de Sistema"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(get_current_admin)],
 )
 
 # SE HAN ELIMINADO INTENCIONALMENTE LOS MÉTODOS POST, PUT Y DELETE.
