@@ -9,10 +9,15 @@ del flujo: registro, verificación OTP, login y recuperación de contraseña.
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from src.schemas.UsuarioSchema import TipoVinculacion
 from src.utils.security import validate_password_strength
+
+# Duración de validez de los códigos OTP (registro y recuperación de
+# contraseña). Debe coincidir con minutos_expiracion en las llamadas a
+# CodigoVerificacionCRUD.crear_codigo_verificacion() de los endpoints.
+OTP_EXPIRACION_MINUTOS = 15
 
 
 class RegistroRequest(BaseModel):
@@ -55,7 +60,17 @@ class VerificarRegistroRequest(BaseModel):
     """Código OTP que el usuario ingresa para activar su cuenta."""
 
     usuario_id: UUID
-    codigo: str
+    codigo: str = Field(
+        ...,
+        description=f"Código de 6 dígitos enviado por correo. Expira a los {OTP_EXPIRACION_MINUTOS} minutos de haberse generado.",
+    )
+
+
+class ReenviarCodigoRegistroRequest(BaseModel):
+    """Solicita un nuevo código OTP de registro (ej. el anterior expiró).
+    Genera uno nuevo e invalida automáticamente el anterior."""
+
+    correo: str
 
 
 class LoginRequest(BaseModel):
@@ -78,7 +93,10 @@ class ResetearPasswordRequest(BaseModel):
     """Confirma el código de recuperación y establece la nueva contraseña."""
 
     correo: str
-    codigo: str
+    codigo: str = Field(
+        ...,
+        description=f"Código de 6 dígitos enviado por correo. Expira a los {OTP_EXPIRACION_MINUTOS} minutos de haberse generado.",
+    )
     password_nueva: str
 
     @field_validator("password_nueva")
