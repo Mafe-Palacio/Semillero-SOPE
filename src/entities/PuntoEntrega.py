@@ -31,7 +31,7 @@ class PuntoEntrega(Base):
             ingresados y custodiados en este punto de origen.
     """
 
-    __tablename__ = "puntos_entregas"
+    __tablename__ = "puntos_entrega"
 
     puntoEntrega_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
