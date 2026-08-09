@@ -8,15 +8,6 @@ from src.database.config import Base
 from src.entities.Enums import EstadoReclamo
 
 
-class EstadoReclamo(str, enum.Enum):
-    """Enumerador para los diferentes estados de un reclamo."""
-
-    PENDIENTE = "PENDIENTE"
-    EN_REVISION = "EN_REVISION"
-    APROBADO = "APROBADO"
-    RECHAZADO = "RECHAZADO"
-
-
 class Reclamo(Base):
     """
     Entidad que representa un reclamo realizado por un usuario
@@ -51,9 +42,7 @@ class Reclamo(Base):
         ),  # Ajusta el nombre de la tabla si es distinto
         nullable=False,
     )
-    estado = Column(
-        Enum(EstadoReclamo), nullable=False, default=EstadoReclamo.PENDIENTE
-    )
+    estado = Column(Enum(EstadoReclamo), nullable=False, default=EstadoReclamo.ENVIADO)
     evidencia_url = Column(String(500), nullable=True)
     fecha_envio = Column(DateTime, nullable=False, default=datetime.utcnow)
     fecha_revision = Column(DateTime, nullable=True)
@@ -62,6 +51,6 @@ class Reclamo(Base):
     horario_cita = Column(String(150), nullable=True)
     es_presencial = Column(Boolean, nullable=False, default=False)
 
-    # Relaciones (opcionales pero recomendadas basadas en tu ejemplo)
-    # objeto = relationship("ObjetoEnCustodia", back_populates="reclamos")
-    # usuario = relationship("Usuario", back_populates="reclamos")
+    # Relaciones
+    objeto = relationship("ObjetoEnCustodia", back_populates="reclamos")
+    usuario = relationship("Usuario")
