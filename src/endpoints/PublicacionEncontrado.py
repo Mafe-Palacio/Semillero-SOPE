@@ -181,7 +181,7 @@ async def obtener_publicacion_encontrada(
 
     es_dueno = publicacion.usuario_id == current_user.id_usuario
     if not es_dueno:
-        if current_user.rol != "ADMIN":
+        if current_user.rol not in ("ADMIN", "SUPERADMIN"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tienes permiso para ver esta publicación",
