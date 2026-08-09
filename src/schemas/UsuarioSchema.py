@@ -11,6 +11,7 @@ from src.utils.security import validate_password_strength
 class RolUsuario(str, Enum):
     """Roles del sistema para control de acceso."""
 
+    SUPERADMIN = "SUPERADMIN"
     ADMIN = "ADMIN"
     USER = "USER"
 
