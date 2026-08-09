@@ -374,6 +374,12 @@ async def moderar_usuario(
                 detail="Usuario no encontrado",
             )
 
+        if usuario.rol in ("ADMIN", "SUPERADMIN") and current_admin.rol != "SUPERADMIN":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo un SUPERADMIN puede moderar a otro administrador",
+            )
+
         if data.is_blocked is True:
             if not data.motivo_bloqueo:
                 raise HTTPException(
@@ -400,6 +406,14 @@ async def moderar_usuario(
             )
 
         if data.sede_id is not None:
+            if current_admin.rol != "SUPERADMIN":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        "Solo un SUPERADMIN puede reasignar la sede que "
+                        "administra otro usuario"
+                    ),
+                )
             crud.asignar_sede_admin(
                 usuario_id=usuario_id,
                 sede_id=data.sede_id,
