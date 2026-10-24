@@ -43,10 +43,14 @@ class ReportePerdida(Base):
         Enum(
             "ELECTRONICOS",
             "DOCUMENTOS",
-            "ROPA_Y_ACCESORIOS",
+            "ROPA",
+            "ACCESORIOS",
+            "BILLETERAS_Y_MONEDEROS",
             "BOLSOS_Y_MALETAS",
             "LLAVES",
             "LIBROS_Y_UTILES",
+            "TERMOS_Y_CONTENEDORES",
+            "CASCOS",
             "OTROS",
             name="categoriaobjeto",
         ),
@@ -81,7 +85,9 @@ class ReportePerdida(Base):
     )
 
     # Relaciones
-    usuario = relationship("Usuario", back_populates="reportes_perdida")
+    usuario = relationship(
+        "Usuario", back_populates="reportes_perdida", foreign_keys=[usuario_id]
+    )
     lugar_perdida = relationship("Ubicacion", back_populates="reportes_perdida")
     posibles_coincidencias = relationship(
         "PosibleCoincidencia", back_populates="reporte_perdida"

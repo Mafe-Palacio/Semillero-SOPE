@@ -2,19 +2,10 @@ import uuid
 import enum
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Column, ForeignKey, String, DateTime, Boolean, Enum
+from sqlalchemy import Column, ForeignKey, Index, String, DateTime, Boolean, Enum, text
 from sqlalchemy.orm import relationship
 from src.database.config import Base
 from src.entities.Enums import EstadoReclamo
-
-
-class EstadoReclamo(str, enum.Enum):
-    """Enumerador para los diferentes estados de un reclamo."""
-
-    PENDIENTE = "PENDIENTE"
-    EN_REVISION = "EN_REVISION"
-    APROBADO = "APROBADO"
-    RECHAZADO = "RECHAZADO"
 
 
 class Reclamo(Base):
@@ -38,6 +29,22 @@ class Reclamo(Base):
 
     __tablename__ = "reclamos"
 
+    # HU08: a lo sumo UN reclamo "vivo" por objeto. Es la garantía final a nivel de
+    # base de datos; la reserva atómica del objeto evita llegar hasta aquí.
+    __table_args__ = (
+        Index(
+            "idx_un_solo_reclamo_activo",
+            "objetoEnCustodia_id",
+            unique=True,
+            postgresql_where=text(
+                "estado IN ('ENVIADO', 'EN_REVISION', 'APROBADO', 'LISTO_PARA_RECOGER')"
+            ),
+            sqlite_where=text(
+                "estado IN ('ENVIADO', 'EN_REVISION', 'APROBADO', 'LISTO_PARA_RECOGER')"
+            ),
+        ),
+    )
+
     reclamo_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     objetoEnCustodia_id = Column(
         UUID(as_uuid=True),
@@ -51,9 +58,7 @@ class Reclamo(Base):
         ),  # Ajusta el nombre de la tabla si es distinto
         nullable=False,
     )
-    estado = Column(
-        Enum(EstadoReclamo), nullable=False, default=EstadoReclamo.PENDIENTE
-    )
+    estado = Column(Enum(EstadoReclamo), nullable=False, default=EstadoReclamo.ENVIADO)
     evidencia_url = Column(String(500), nullable=True)
     fecha_envio = Column(DateTime, nullable=False, default=datetime.utcnow)
     fecha_revision = Column(DateTime, nullable=True)
@@ -62,6 +67,6 @@ class Reclamo(Base):
     horario_cita = Column(String(150), nullable=True)
     es_presencial = Column(Boolean, nullable=False, default=False)
 
-    # Relaciones (opcionales pero recomendadas basadas en tu ejemplo)
-    # objeto = relationship("ObjetoEnCustodia", back_populates="reclamos")
-    # usuario = relationship("Usuario", back_populates="reclamos")
+    # Relaciones
+    objeto = relationship("ObjetoEnCustodia", back_populates="reclamos")
+    usuario = relationship("Usuario")

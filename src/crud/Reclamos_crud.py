@@ -32,6 +32,11 @@ class ReclamoCRUD:
         self.db.refresh(nuevo_reclamo)
         return nuevo_reclamo
 
+    def obtener_reclamo_por_id(self, reclamo_id: UUID) -> Optional[Reclamo]:
+        """Sin filtro de sede — para que el dueño del reclamo pueda verlo,
+        o como paso previo antes de decidir si es dueño o admin."""
+        return self.db.query(Reclamo).filter(Reclamo.reclamo_id == reclamo_id).first()
+
     def obtener_reclamo_de_sede_o_404(self, reclamo_id: UUID, sede_id: UUID) -> Reclamo:
         """Filtra el reclamo validando la sede mediante JOINs."""
         reclamo = (
@@ -60,6 +65,45 @@ class ReclamoCRUD:
             .offset(skip)
             .limit(limit)
             .all()
+        )
+
+    def obtener_reclamos_admin(
+        self,
+        sede_id: UUID,
+        estado: Optional[str] = None,
+        usuario_id: Optional[UUID] = None,
+        fecha_desde: Optional[datetime] = None,
+        fecha_hasta: Optional[datetime] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[Reclamo]:
+        """Listado general de reclamos (HU14/admin), SIEMPRE acotado a la
+        sede del admin autenticado vía ObjetoEnCustodia -> PuntoEntrega.
+        Todos los filtros son opcionales y se combinan entre sí."""
+        query = (
+            self.db.query(Reclamo)
+            .join(
+                ObjetoEnCustodia,
+                Reclamo.objetoEnCustodia_id == ObjetoEnCustodia.objetoEnCustodia_id,
+            )
+            .join(
+                PuntoEntrega,
+                ObjetoEnCustodia.lugar_origen_id == PuntoEntrega.puntoEntrega_id,
+            )
+            .filter(PuntoEntrega.sede_id == sede_id)
+        )
+
+        if estado:
+            query = query.filter(Reclamo.estado == estado)
+        if usuario_id:
+            query = query.filter(Reclamo.usuario_id == usuario_id)
+        if fecha_desde:
+            query = query.filter(Reclamo.fecha_envio >= fecha_desde)
+        if fecha_hasta:
+            query = query.filter(Reclamo.fecha_envio <= fecha_hasta)
+
+        return (
+            query.order_by(Reclamo.fecha_envio.desc()).offset(skip).limit(limit).all()
         )
 
     def actualizar_reclamo(self, reclamo_id: UUID, **kwargs) -> Optional[Reclamo]:

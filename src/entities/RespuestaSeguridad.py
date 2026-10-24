@@ -34,6 +34,6 @@ class RespuestaSeguridad(Base):
     )
     respuesta_usuario = Column(String(500), nullable=False)
 
-    # Relaciones sugeridas (opcionales, facilitan consultas complejas después)
-    # reclamo = relationship("Reclamo", back_populates="respuestas_seguridad")
-    # pregunta = relationship("PreguntaSeguridad", back_populates="respuestas")
+    # Relaciones
+    reclamo = relationship("Reclamo")
+    pregunta = relationship("PreguntaSeguridad", back_populates="respuestas")

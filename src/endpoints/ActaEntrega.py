@@ -3,7 +3,7 @@ import traceback
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from src.core.auth import get_current_user
+from src.core.auth import get_current_admin_con_sede
 from src.crud.ActaEntrega_crud import ActaEntregaCRUD
 from src.crud.Reclamos_crud import ReclamoCRUD
 from src.crud.ObjetoEnCustodia_crud import ObjetoEnCustodiaCRUD
@@ -14,7 +14,7 @@ from src.utils.notifications import NotificationDispatcher
 router = APIRouter(
     prefix="/actas-entrega",
     tags=["Actas de Entrega"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(get_current_admin_con_sede)],
 )
 
 
@@ -25,12 +25,14 @@ async def registrar_acta_entrega(
     acta_data: ActaEntregaCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_admin=Depends(get_current_admin_con_sede),
 ):
+    """Cierra el reclamo con la firma física/digital del reclamante. Exclusivo
+    de la administradora de la sede dueña del objeto."""
     try:
         reclamo_crud = ReclamoCRUD(db)
         reclamo = reclamo_crud.obtener_reclamo_de_sede_o_404(
-            acta_data.reclamo_id, current_user.sede_id
+            acta_data.reclamo_id, current_admin.sede_id
         )
 
         crud = ActaEntregaCRUD(db)
@@ -43,17 +45,17 @@ async def registrar_acta_entrega(
             carnet_reclamante=acta_data.carnet_reclamante,
             firma_url=acta_data.firma_url,
             validacion_verbal=acta_data.validacion_verbal,
-            procesada_por_admin_id=current_user.usuario_id,
+            procesada_por_admin_id=current_admin.id_usuario,
         )
 
         objeto_crud = ObjetoEnCustodiaCRUD(db)
-        objeto_crud.marcar_objeto_reclamado(reclamo.objetoEnCustodia_id)
+        objeto = objeto_crud.marcar_objeto_reclamado(reclamo.objetoEnCustodia_id)
 
         dispatcher = NotificationDispatcher()
         background_tasks.add_task(
-            dispatcher.enviar_correo_acta_entrega,
+            dispatcher.enviar_cierre_exitoso_reclamante,
             acta_data.correo_reclamante,
-            acta_data.firma_url,
+            objeto.descripcion if objeto else "tu objeto",
         )
         return acta
     except ValueError as ve:
@@ -67,11 +69,13 @@ async def registrar_acta_entrega(
 
 @router.get("/{acta_id}", response_model=ActaEntregaResponse)
 async def obtener_acta(
-    acta_id: UUID, db: Session = Depends(get_db), current_user=Depends(get_current_user)
+    acta_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin_con_sede),
 ):
     try:
         crud = ActaEntregaCRUD(db)
-        return crud.obtener_acta_de_sede_o_404(acta_id, current_user.sede_id)
+        return crud.obtener_acta_de_sede_o_404(acta_id, current_admin.sede_id)
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(ve))
     except Exception as e:

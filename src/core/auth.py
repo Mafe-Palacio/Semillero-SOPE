@@ -27,6 +27,7 @@ class CurrentUser(BaseModel):
     correo: str
     rol: str
     sede_id: UUID | None = None  # solo tiene valor si rol == ADMIN
+    celular: str | None = None
 
 
 def create_access_token(
@@ -95,15 +96,49 @@ async def get_current_user(
         correo=user.correo,
         rol=user.rol,
         sede_id=user.sede_id,
+        celular=user.celular,
     )
+
+
+async def get_current_user_con_celular(
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """HU25/CU04: para crear reportes, publicaciones o reclamos el usuario debe
+    tener registrado su número de celular. Los administradores quedan exentos
+    porque operan en nombre de la oficina."""
+    if current_user.rol in ("ADMIN", "SUPERADMIN"):
+        return current_user
+    if not (current_user.celular or "").strip():
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Debes registrar tu número de celular en tu perfil "
+                "(PUT /usuarios/me) antes de crear reportes, publicaciones o reclamos"
+            ),
+        )
+    return current_user
 
 
 async def get_current_admin(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
-    """Exige rol ADMIN. Úsala en cualquier endpoint de escritura administrativa."""
-    if current_user.rol != "ADMIN":
+    """Exige rol ADMIN o SUPERADMIN. Úsala en cualquier endpoint de escritura
+    administrativa: SUPERADMIN hereda todos los permisos de ADMIN."""
+    if current_user.rol not in ("ADMIN", "SUPERADMIN"):
         raise HTTPException(status_code=403, detail="Requiere rol de administrador")
+    return current_user
+
+
+async def get_current_superadmin(
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """Exige rol SUPERADMIN exclusivamente. Úsala en endpoints donde ni
+    siquiera un ADMIN normal debe poder actuar — ej. reasignar la sede de
+    otro admin, o administrar cuentas de otros administradores."""
+    if current_user.rol != "SUPERADMIN":
+        raise HTTPException(
+            status_code=403, detail="Requiere rol de superadministrador"
+        )
     return current_user
 
 

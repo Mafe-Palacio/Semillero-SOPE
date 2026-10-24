@@ -1,6 +1,7 @@
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr
+from src.utils.imagenes import UrlImagenRequerida
 
 
 class ActaEntregaBase(BaseModel):
@@ -21,7 +22,7 @@ class ActaEntregaCreate(ActaEntregaBase):
     Nota: procesada_por_admin_id lo tomaremos del token del usuario logueado en el endpoint.
     """
 
-    pass
+    firma_url: UrlImagenRequerida
 
 
 class ActaEntregaResponse(ActaEntregaBase):

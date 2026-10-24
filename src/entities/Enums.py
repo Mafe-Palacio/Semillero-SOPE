@@ -4,6 +4,7 @@ import enum
 class RolUsuario(str, enum.Enum):
     """Roles de acceso y permisos para los usuarios del sistema."""
 
+    SUPERADMIN = "SUPERADMIN"
     ADMIN = "ADMIN"
     USER = "USER"
 
@@ -29,10 +30,14 @@ class CategoriaObjeto(str, enum.Enum):
 
     ELECTRONICOS = "ELECTRONICOS"
     DOCUMENTOS = "DOCUMENTOS"
-    ROPA_Y_ACCESORIOS = "ROPA_Y_ACCESORIOS"
+    ROPA = "ROPA"
+    ACCESORIOS = "ACCESORIOS"
+    BILLETERAS_Y_MONEDEROS = "BILLETERAS_Y_MONEDEROS"
     BOLSOS_Y_MALETAS = "BOLSOS_Y_MALETAS"
     LLAVES = "LLAVES"
     LIBROS_Y_UTILES = "LIBROS_Y_UTILES"
+    TERMOS_Y_CONTENEDORES = "TERMOS_Y_CONTENEDORES"
+    CASCOS = "CASCOS"
     OTROS = "OTROS"
 
 

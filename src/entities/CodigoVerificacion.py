@@ -36,7 +36,7 @@ class CodigoVerificacion(Base):
         Enum("REGISTRO", "RECUPERACION_PASSWORD", name="tipocodigoverificacion"),
         nullable=False,
     )
-    expira_en = Column(DateTime(timezone=True), nullable=False)
+    expira_en = Column(DateTime(timezone=False), nullable=False)
     usado = Column(Boolean, nullable=False, default=False)
 
     # Relaciones
@@ -44,7 +44,7 @@ class CodigoVerificacion(Base):
 
     def esta_vigente(self) -> bool:
         """Verifica si el código no ha sido usado y aún no ha alcanzado su tiempo de expiración."""
-        return (not self.usado) and datetime.now(timezone.utc) < self.expira_en
+        return (not self.usado) and datetime.utcnow() < self.expira_en
 
     def marcar_usado(self) -> None:
         """Marca el código como utilizado para invalidar reintentos futuros."""

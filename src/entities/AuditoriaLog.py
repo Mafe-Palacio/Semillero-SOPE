@@ -32,7 +32,7 @@ class AuditLog(Base):
         fecha (datetime): Momento exacto en que ocurrió la acción.
     """
 
-    __tablename__ = "audit_logs"
+    __tablename__ = "logs_auditoria"
 
     auditLog_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     entidad = Column(String(500), nullable=False)

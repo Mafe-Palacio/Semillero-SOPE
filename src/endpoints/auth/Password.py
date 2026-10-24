@@ -11,7 +11,11 @@ from sqlalchemy.orm import Session
 from src.crud.CodigoVerificacion_crud import CodigoVerificacionCRUD
 from src.crud.Usuario_crud import UsuarioCRUD
 from src.database.config import get_db
-from src.schemas.AuthSchema import RecuperarPasswordRequest, ResetearPasswordRequest
+from src.schemas.AuthSchema import (
+    OTP_EXPIRACION_MINUTOS,
+    RecuperarPasswordRequest,
+    ResetearPasswordRequest,
+)
 from src.schemas.schemas import RespuestaAPI
 from src.utils.notifications import NotificationDispatcher
 from src.utils.security import generar_codigo_otp, hash_password
@@ -19,7 +23,16 @@ from src.utils.security import generar_codigo_otp, hash_password
 router = APIRouter()
 
 
-@router.post("/recuperar-password", response_model=RespuestaAPI)
+@router.post(
+    "/recuperar-password",
+    response_model=RespuestaAPI,
+    summary="Solicitar código de recuperación de contraseña",
+    description=(
+        f"Envía un código OTP de 6 dígitos válido por {OTP_EXPIRACION_MINUTOS} "
+        "minutos. Llamar este endpoint de nuevo antes de que expire genera un "
+        "código nuevo e invalida el anterior (funciona también como 'reenviar')."
+    ),
+)
 async def recuperar_password(
     data: RecuperarPasswordRequest,
     background_tasks: BackgroundTasks,
@@ -38,7 +51,7 @@ async def recuperar_password(
                 usuario_id=usuario.usuario_id,
                 codigo=codigo,
                 tipo="RECUPERACION_PASSWORD",
-                minutos_expiracion=15,
+                minutos_expiracion=OTP_EXPIRACION_MINUTOS,
             )
             dispatcher = NotificationDispatcher()
             background_tasks.add_task(
@@ -60,7 +73,12 @@ async def recuperar_password(
         )
 
 
-@router.post("/resetear-password", response_model=RespuestaAPI)
+@router.post(
+    "/resetear-password",
+    response_model=RespuestaAPI,
+    summary="Confirmar código y establecer la nueva contraseña",
+    description=f"El código enviado por /auth/recuperar-password expira a los {OTP_EXPIRACION_MINUTOS} minutos.",
+)
 async def resetear_password(
     data: ResetearPasswordRequest,
     db: Session = Depends(get_db),

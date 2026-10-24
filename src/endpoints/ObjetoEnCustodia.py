@@ -11,6 +11,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy.orm import Session
 
 from src.core.auth import (
+    get_current_admin,
     get_current_admin_con_sede,
     get_current_user,
 )
@@ -238,7 +239,10 @@ async def obtener_objeto_custodia(
                 detail="Objeto en custodia no encontrado",
             )
 
-        if current_user.rol == "ADMIN" and current_user.sede_id is not None:
+        if (
+            current_user.rol in ("ADMIN", "SUPERADMIN")
+            and current_user.sede_id is not None
+        ):
             punto = PuntoEntregaCRUD(db).obtener_punto_entrega_por_id(
                 objeto.lugar_origen_id
             )
@@ -430,19 +434,48 @@ async def archivar_objeto_sin_dueno(
 
 @router.post("/expiracion", response_model=RespuestaAPI)
 async def ejecutar_expiracion_y_archivado(
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
 ):
     """Rutina periódica (HU09): marca 'POR_VENCER' los objetos con ~5 meses
     en custodia y reporta los candidatos a archivar (~6 meses). Pensado
     para invocarse desde un cron/scheduler, pero expuesto también como
-    disparador manual para el admin."""
+    disparador manual para el admin. Notifica por correo a los admins de
+    cada sede afectada sobre sus objetos recién marcados POR_VENCER."""
     try:
         crud = ObjetoEnCustodiaCRUD(db)
         resultado = crud.ejecutar_expiracion_y_archivado()
+        marcados = resultado["marcados_por_vencer"]
+
+        # Agrupa los objetos recién marcados por la sede de su punto de
+        # entrega, y notifica a los admins de cada sede afectada.
+        if marcados:
+            punto_crud = PuntoEntregaCRUD(db)
+            usuario_crud = UsuarioCRUD(db)
+            dispatcher = NotificationDispatcher()
+
+            objetos_por_sede: dict = {}
+            for objeto in marcados:
+                punto = punto_crud.obtener_punto_entrega_por_id(objeto.lugar_origen_id)
+                if not punto:
+                    continue
+                objetos_por_sede.setdefault(punto.sede_id, []).append(
+                    objeto.descripcion
+                )
+
+            for sede_id, descripciones in objetos_por_sede.items():
+                admins = usuario_crud.obtener_administradores_por_sede(sede_id)
+                for admin in admins:
+                    background_tasks.add_task(
+                        dispatcher.enviar_alerta_objetos_por_vencer,
+                        admin.correo,
+                        descripciones,
+                    )
 
         return RespuestaAPI(
             mensaje=(
-                f"{resultado['marcados_por_vencer']} objeto(s) marcados como "
+                f"{len(marcados)} objeto(s) marcados como "
                 f"POR_VENCER. {len(resultado['candidatos_a_archivar'])} candidato(s) "
                 f"listos para archivar definitivamente."
             ),

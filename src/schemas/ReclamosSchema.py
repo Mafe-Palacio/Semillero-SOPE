@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from src.entities.Enums import EstadoReclamo
+from src.utils.imagenes import UrlImagen
 
 
 class ReclamoBase(BaseModel):
@@ -18,7 +19,7 @@ class ReclamoBase(BaseModel):
 class ReclamoCreate(ReclamoBase):
     """Esquema utilizado para crear un nuevo Reclamo."""
 
-    pass
+    evidencia_url: UrlImagen = None
 
 
 class ReclamoUpdate(BaseModel):

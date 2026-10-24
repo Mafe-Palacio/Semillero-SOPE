@@ -47,7 +47,7 @@ class Usuario(Base):
     correo = Column(String(150), nullable=False, unique=True)
     hashed_password = Column(String(200), nullable=False)
 
-    rol = Column(Enum("ADMIN", "USER", name="rolusuario"), nullable=False)
+    rol = Column(Enum("SUPERADMIN", "ADMIN", "USER", name="rolusuario"), nullable=False)
     tipo_vinculacion = Column(
         Enum(
             "ESTUDIANTE",
@@ -81,9 +81,15 @@ class Usuario(Base):
         "Sede", back_populates="usuarios_administradores", foreign_keys=[sede_id]
     )
     codigos_verificacion = relationship("CodigoVerificacion", back_populates="usuario")
-    reportes_perdida = relationship("ReportePerdida", back_populates="usuario")
+    reportes_perdida = relationship(
+        "ReportePerdida",
+        back_populates="usuario",
+        foreign_keys="ReportePerdida.usuario_id",
+    )
     publicaciones_encontradas = relationship(
-        "PublicacionEncontrado", back_populates="usuario"
+        "PublicacionEncontrado",
+        back_populates="usuario",
+        foreign_keys="PublicacionEncontrado.usuario_id",
     )
 
     def esta_habilitado(self) -> bool:
@@ -91,8 +97,12 @@ class Usuario(Base):
         return self.is_verified and self.is_active and not self.is_blocked
 
     def es_admin(self) -> bool:
-        """Verifica si el usuario cuenta con rol de administrador."""
-        return self.rol == "ADMIN"
+        """Verifica si el usuario cuenta con rol de administrador (ADMIN o SUPERADMIN)."""
+        return self.rol in ("ADMIN", "SUPERADMIN")
+
+    def es_superadmin(self) -> bool:
+        """Verifica si el usuario cuenta con el rol superior SUPERADMIN."""
+        return self.rol == "SUPERADMIN"
 
     def dominio_correo(self) -> str:
         """Retorna el dominio institucional del correo asignado."""

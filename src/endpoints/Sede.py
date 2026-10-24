@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from src.core.auth import get_current_user
+from src.core.auth import get_current_user, get_current_superadmin
 from src.crud.Sede_crud import SedeCRUD
 from src.database.config import get_db
 from src.schemas.SedeSchema import SedeCreate, SedeResponse, SedeUpdate
@@ -27,15 +27,16 @@ router = APIRouter(
 async def crear_sede(
     sede_data: SedeCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_admin=Depends(get_current_superadmin),
 ):
+    """Solo SUPERADMIN: sedes es la entidad de más alto nivel del sistema."""
     try:
         crud = SedeCRUD(db)
         return crud.crear_sede(
             nombre=sede_data.nombre,
             codigo=sede_data.codigo,
             activa=sede_data.activa,
-            usuario_crea_id=current_user.id_usuario,
+            usuario_crea_id=current_admin.id_usuario,
         )
 
     except ValueError as e:
@@ -171,8 +172,9 @@ async def actualizar_sede(
     sede_id: UUID,
     sede_data: SedeUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_admin=Depends(get_current_superadmin),
 ):
+    """Solo SUPERADMIN."""
     try:
         crud = SedeCRUD(db)
 
@@ -192,7 +194,7 @@ async def actualizar_sede(
 
         return crud.actualizar_sede(
             sede_id=sede_id,
-            usuario_edita_id=current_user.id_usuario,
+            usuario_edita_id=current_admin.id_usuario,
             **campos_actualizacion,
         )
 
@@ -213,9 +215,9 @@ async def actualizar_sede(
 async def desactivar_sede(
     sede_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_admin=Depends(get_current_superadmin),
 ):
-    """Desactivación lógica (activa=False); no borra el registro (HU-Sede)."""
+    """Desactivación lógica (activa=False); no borra el registro (HU-Sede). Solo SUPERADMIN."""
     try:
         crud = SedeCRUD(db)
 
@@ -226,7 +228,7 @@ async def desactivar_sede(
                 detail="Sede no encontrada",
             )
 
-        crud.desactivar_sede(sede_id=sede_id, usuario_edita_id=current_user.id_usuario)
+        crud.desactivar_sede(sede_id=sede_id, usuario_edita_id=current_admin.id_usuario)
 
         return RespuestaAPI(mensaje="Sede desactivada exitosamente", exito=True)
 

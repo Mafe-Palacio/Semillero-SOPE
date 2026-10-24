@@ -43,8 +43,7 @@ class CodigoVerificacionCRUD:
             usuario_id=usuario_id,
             codigo=codigo,
             tipo=tipo,
-            expira_en=datetime.now(timezone.utc)
-            + timedelta(minutes=minutos_expiracion),
+            expira_en=datetime.utcnow() + timedelta(minutes=minutos_expiracion),
             usado=False,
         )
 

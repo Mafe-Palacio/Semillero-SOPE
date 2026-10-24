@@ -10,7 +10,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from src.core.auth import get_current_user, get_current_admin_con_sede
+from src.core.auth import (
+    get_current_admin_con_sede,
+    get_current_user,
+    get_current_user_con_celular,
+)
 from src.crud.PublicacionEncontrado_crud import PublicacionEncontradoCRUD
 from src.crud.PuntoEntrega_crud import PuntoEntregaCRUD
 from src.database.config import get_db
@@ -18,6 +22,7 @@ from src.entities.PublicacionEncontrado import PublicacionEncontrado
 from src.schemas.PublicacionEncontradoSchema import (
     PublicacionEncontradoCreate,
     PublicacionEncontradoModeracion,
+    PublicacionEncontradoPublico,
     PublicacionEncontradoResolverEliminacion,
     PublicacionEncontradoResponse,
     PublicacionEncontradoUpdate,
@@ -53,7 +58,7 @@ def _verificar_sede_admin(
 async def crear_publicacion_encontrada(
     data: PublicacionEncontradoCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_con_celular),
 ):
     try:
         crud = PublicacionEncontradoCRUD(db)
@@ -91,7 +96,7 @@ async def obtener_mis_publicaciones(
     )
 
 
-@router.get("/buscar", response_model=List[PublicacionEncontradoResponse])
+@router.get("/buscar", response_model=List[PublicacionEncontradoPublico])
 async def buscar_publicaciones_por_sede_hallazgo(
     sede_id: UUID = Query(..., description="Sede donde se busca el objeto encontrado"),
     categoria: Optional[str] = Query(None),
@@ -181,7 +186,7 @@ async def obtener_publicacion_encontrada(
 
     es_dueno = publicacion.usuario_id == current_user.id_usuario
     if not es_dueno:
-        if current_user.rol != "ADMIN":
+        if current_user.rol not in ("ADMIN", "SUPERADMIN"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tienes permiso para ver esta publicación",

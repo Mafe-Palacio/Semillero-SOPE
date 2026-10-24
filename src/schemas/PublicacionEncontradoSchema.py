@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
+from src.utils.imagenes import UrlImagen
 
 
 class CategoriaObjeto(str, Enum):
@@ -10,10 +11,14 @@ class CategoriaObjeto(str, Enum):
 
     ELECTRONICOS = "ELECTRONICOS"
     DOCUMENTOS = "DOCUMENTOS"
-    ROPA_Y_ACCESORIOS = "ROPA_Y_ACCESORIOS"
+    ROPA = "ROPA"
+    ACCESORIOS = "ACCESORIOS"
+    BILLETERAS_Y_MONEDEROS = "BILLETERAS_Y_MONEDEROS"
     BOLSOS_Y_MALETAS = "BOLSOS_Y_MALETAS"
     LLAVES = "LLAVES"
     LIBROS_Y_UTILES = "LIBROS_Y_UTILES"
+    TERMOS_Y_CONTENEDORES = "TERMOS_Y_CONTENEDORES"
+    CASCOS = "CASCOS"
     OTROS = "OTROS"
 
 
@@ -41,7 +46,7 @@ class PublicacionEncontradoBase(BaseModel):
 class PublicacionEncontradoCreate(PublicacionEncontradoBase):
     """Datos requeridos para publicar un reporte de objeto hallado."""
 
-    pass
+    imagen_url: UrlImagen = None
 
 
 class PublicacionEncontradoUpdate(BaseModel):
@@ -49,7 +54,7 @@ class PublicacionEncontradoUpdate(BaseModel):
 
     categoria: Optional[CategoriaObjeto] = None
     descripcion: Optional[str] = None
-    imagen_url: Optional[str] = None
+    imagen_url: UrlImagen = None
 
 
 class PublicacionEncontradoModeracion(BaseModel):
@@ -76,5 +81,21 @@ class PublicacionEncontradoResponse(PublicacionEncontradoBase):
     motivo_rechazo: Optional[str] = None
     eliminacion_solicitada: bool
     fecha_edicion: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PublicacionEncontradoPublico(BaseModel):
+    """Vista filtrada para el catálogo general (HU01): oculta la
+    descripción libre, igual que ObjetoEnCustodiaPublico oculta
+    detalles_internos y ReportePerdidaPublico oculta su descripción."""
+
+    publicacionEncontrado_id: UUID
+    categoria: CategoriaObjeto
+    lugar_hallazgo_id: UUID
+    lugar_entrega_fisica_id: UUID
+    fecha_hallazgo: date
+    imagen_url: Optional[str] = None
+    estado: EstadoPublicacion
 
     model_config = ConfigDict(from_attributes=True)

@@ -1,6 +1,7 @@
 """
 POST /auth/registro
 POST /auth/verificar-registro
+POST /auth/reenviar-codigo-registro
 """
 
 import traceback
@@ -14,11 +15,14 @@ from src.crud.CodigoVerificacion_crud import CodigoVerificacionCRUD
 from src.crud.Usuario_crud import UsuarioCRUD
 from src.database.config import get_db
 from src.schemas.AuthSchema import (
+    OTP_EXPIRACION_MINUTOS,
+    ReenviarCodigoRegistroRequest,
     RegistroRequest,
     RegistroResponse,
     TokenResponse,
     VerificarRegistroRequest,
 )
+from src.schemas.schemas import RespuestaAPI
 from src.utils.notifications import NotificationDispatcher
 from src.utils.security import generar_codigo_otp, hash_password
 
@@ -54,7 +58,15 @@ def _concatenar_dominio(
 
 
 @router.post(
-    "/registro", response_model=RegistroResponse, status_code=status.HTTP_201_CREATED
+    "/registro",
+    response_model=RegistroResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar un nuevo usuario",
+    description=(
+        "Crea la cuenta con is_verified=False y envía un código OTP de 6 dígitos "
+        f"al correo institucional. El código expira a los {OTP_EXPIRACION_MINUTOS} "
+        "minutos — si se vence, usa POST /auth/reenviar-codigo-registro."
+    ),
 )
 async def registrar_usuario(
     data: RegistroRequest,
@@ -106,7 +118,16 @@ async def registrar_usuario(
         )
 
 
-@router.post("/verificar-registro", response_model=TokenResponse)
+@router.post(
+    "/verificar-registro",
+    response_model=TokenResponse,
+    summary="Verificar el código OTP de registro",
+    description=(
+        f"El código dura {OTP_EXPIRACION_MINUTOS} minutos desde que se generó. "
+        "Si ya expiró, no hace falta registrarse de nuevo — usa "
+        "POST /auth/reenviar-codigo-registro para pedir uno nuevo."
+    ),
+)
 async def verificar_registro(
     data: VerificarRegistroRequest,
     db: Session = Depends(get_db),
@@ -123,7 +144,7 @@ async def verificar_registro(
         if not es_valido:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Código inválido o expirado",
+                detail="Código inválido o expirado. Puedes pedir uno nuevo con /auth/reenviar-codigo-registro.",
             )
 
         usuario = usuario_crud.verificar_usuario(data.usuario_id)
@@ -151,4 +172,64 @@ async def verificar_registro(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al verificar el registro: {str(e)}",
+        )
+
+
+@router.post(
+    "/reenviar-codigo-registro",
+    response_model=RespuestaAPI,
+    summary="Reenviar el código OTP de registro",
+    description=(
+        "Genera un nuevo código (invalidando automáticamente el anterior) y lo "
+        f"reenvía por correo. Útil cuando el código de {OTP_EXPIRACION_MINUTOS} "
+        "minutos ya venció. No aplica si la cuenta ya está verificada."
+    ),
+)
+async def reenviar_codigo_registro(
+    data: ReenviarCodigoRegistroRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    try:
+        usuario_crud = UsuarioCRUD(db)
+        usuario = usuario_crud.obtener_usuario_por_correo(data.correo)
+
+        if not usuario:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No existe una cuenta pendiente de verificación con ese correo",
+            )
+
+        if usuario.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Esta cuenta ya fue verificada. Inicia sesión normalmente.",
+            )
+
+        codigo = generar_codigo_otp()
+        CodigoVerificacionCRUD(db).crear_codigo_verificacion(
+            usuario_id=usuario.usuario_id,
+            codigo=codigo,
+            tipo="REGISTRO",
+            minutos_expiracion=OTP_EXPIRACION_MINUTOS,
+        )
+
+        dispatcher = NotificationDispatcher()
+        background_tasks.add_task(
+            dispatcher.enviar_otp_registro, correo=usuario.correo, codigo=codigo
+        )
+
+        return RespuestaAPI(
+            mensaje=f"Se envió un nuevo código de verificación (válido por {OTP_EXPIRACION_MINUTOS} minutos).",
+            exito=True,
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al reenviar el código: {str(e)}",
         )

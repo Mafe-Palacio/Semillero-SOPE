@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import Column, ForeignKey, Integer, Boolean, DateTime
+from sqlalchemy.orm import relationship
 from src.database.config import Base
 
 
@@ -46,7 +47,7 @@ class PosibleCoincidencia(Base):
     notificado = Column(Boolean, nullable=False, default=False)
     fecha_deteccion = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    # Relaciones sugeridas (descomenta si las necesitas para consultas anidadas)
-    # objeto_custodia = relationship("ObjetoEnCustodia")
-    # reporte_perdida = relationship("ReportePerdida")
-    # usuario = relationship("Usuario")
+    # Relaciones
+    objeto_custodia = relationship("ObjetoEnCustodia")
+    reporte_perdida = relationship("ReportePerdida")
+    usuario = relationship("Usuario")

@@ -10,7 +10,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from src.core.auth import get_current_user, get_current_admin_con_sede
+from src.core.auth import (
+    get_current_admin_con_sede,
+    get_current_user,
+    get_current_user_con_celular,
+)
 from src.crud.ReportePerdida_crud import ReportePerdidaCRUD
 from src.crud.Ubicacion_crud import UbicacionCRUD
 from src.database.config import get_db
@@ -47,7 +51,7 @@ def _verificar_sede_admin(reporte: ReportePerdida, current_admin, db: Session) -
 async def crear_reporte_perdida(
     data: ReportePerdidaCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_con_celular),
 ):
     try:
         crud = ReportePerdidaCRUD(db)
@@ -150,7 +154,7 @@ async def obtener_reporte_perdida(
 
     es_dueno = reporte.usuario_id == current_user.id_usuario
     if not es_dueno:
-        if current_user.rol != "ADMIN":
+        if current_user.rol not in ("ADMIN", "SUPERADMIN"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tienes permiso para ver este reporte",

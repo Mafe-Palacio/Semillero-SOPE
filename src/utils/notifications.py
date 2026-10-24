@@ -24,9 +24,10 @@ guardó en base de datos aunque el correo falle).
 """
 
 import logging
+import re
 import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from email.message import EmailMessage
+from email.utils import formataddr
 
 from src.core.config import Settings, get_settings
 
@@ -37,10 +38,30 @@ class NotificationDispatcher:
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
 
-    def _enviar_correo(self, destinatario: str, asunto: str, cuerpo_html: str) -> bool:
-        """Envío de bajo nivel. Retorna True/False en vez de propagar la
-        excepción, para que un fallo de correo no interrumpa el flujo
-        de negocio que lo disparó."""
+    @staticmethod
+    def _html_a_texto_plano(html: str) -> str:
+        """Fallback simple de texto plano a partir del HTML (quita tags)."""
+        texto = re.sub(r"<br\s*/?>", "\n", html)
+        texto = re.sub(r"</(p|h1|h2|h3|div|li)>", "\n\n", texto)
+        texto = re.sub(r"<[^>]+>", "", texto)
+        return re.sub(r"\n{3,}", "\n\n", texto).strip()
+
+    def _enviar_correo(
+        self,
+        destinatario: str,
+        asunto: str,
+        cuerpo_html: str,
+        nombre_destinatario: str | None = None,
+    ) -> bool:
+        """Envío de bajo nivel usando EmailMessage (API moderna de Python),
+        que codifica automáticamente encabezados y cuerpo en UTF-8 según
+        RFC 2047/6532 — evita el bug de nombres/asuntos con tildes rotos
+        que además hace que el filtro antispam marque el correo como
+        sospechoso por encabezados mal formados.
+
+        Retorna True/False en vez de propagar la excepción: un correo que
+        no salió no debe tumbar el flujo de negocio que lo originó.
+        """
         if not self.settings.smtp_user or not self.settings.smtp_pass:
             logger.warning(
                 "SMTP no configurado (SMTP_USER/SMTP_PASS vacíos); "
@@ -50,11 +71,21 @@ class NotificationDispatcher:
             )
             return False
 
-        mensaje = MIMEMultipart("alternative")
-        mensaje["Subject"] = asunto
-        mensaje["From"] = self.settings.smtp_from or self.settings.smtp_user
-        mensaje["To"] = destinatario
-        mensaje.attach(MIMEText(cuerpo_html, "html", "utf-8"))
+        mensaje = EmailMessage()
+        mensaje["Subject"] = asunto  # EmailMessage codifica solo si hace falta
+        mensaje["From"] = formataddr(
+            ("Sistema OPE - ITM", self.settings.smtp_from or self.settings.smtp_user)
+        )
+        mensaje["To"] = (
+            formataddr((nombre_destinatario, destinatario))
+            if nombre_destinatario
+            else destinatario
+        )
+
+        # multipart/alternative: SIEMPRE incluir texto plano junto al HTML.
+        # Un correo solo-HTML es una señal clásica de spam para Gmail/Outlook.
+        mensaje.set_content(self._html_a_texto_plano(cuerpo_html))
+        mensaje.add_alternative(cuerpo_html, subtype="html")
 
         try:
             with smtplib.SMTP(
@@ -62,11 +93,7 @@ class NotificationDispatcher:
             ) as server:
                 server.starttls()
                 server.login(self.settings.smtp_user, self.settings.smtp_pass)
-                server.sendmail(
-                    self.settings.smtp_from or self.settings.smtp_user,
-                    destinatario,
-                    mensaje.as_string(),
-                )
+                server.send_message(mensaje)
             return True
 
         except Exception:
@@ -131,15 +158,32 @@ class NotificationDispatcher:
             correo, "Tu objeto está listo para recoger — Sistema OPE ITM", cuerpo
         )
 
-        def enviar_correo_acta_entrega(self, correo: str, firma_url: str) -> bool:
-            cuerpo = f"""
-            <p>Se registró el acta de entrega de tu objeto.</p>
-            <  >Puedes consultar la firma/soporte aquí:</p>
-            <p><a href="{firma_url}">{firma_url}</a></p>
-            <p>Gracias por usar el Sistema de Objetos Perdidos y Encontrados del ITM.</p>"""
-
+    def enviar_correo_acta_entrega(self, correo: str, firma_url: str) -> bool:
+        cuerpo = f"""
+        <p>Se registró el acta de entrega de tu objeto.</p>
+        <p>Puedes consultar la firma/soporte aquí:</p>
+        <p><a href="{firma_url}">{firma_url}</a></p>
+        <p>Gracias por usar el Sistema de Objetos Perdidos y Encontrados del ITM.</p>
+        """
         return self._enviar_correo(
             correo, "Acta de entrega registrada — Sistema OPE ITM", cuerpo
+        )
+
+    def enviar_alerta_objetos_por_vencer(
+        self, correo: str, descripciones_objetos: list[str]
+    ) -> bool:
+        """HU09: avisa a la administradora de una sede que uno o varios
+        objetos llevan ~5 meses en custodia y están a punto de vencer."""
+        items = "".join(f"<li>{d}</li>" for d in descripciones_objetos)
+        cuerpo = f"""
+        <p>Los siguientes objetos en custodia de tu sede llevan cerca de 5 meses
+        sin ser reclamados y fueron marcados como <strong>POR_VENCER</strong>:</p>
+        <ul>{items}</ul>
+        <p>Si nadie los reclama, en aproximadamente un mes más quedarán como
+        candidatos a archivo definitivo.</p>
+        """
+        return self._enviar_correo(
+            correo, "Objetos próximos a vencer en tu sede — Sistema OPE ITM", cuerpo
         )
 
     def enviar_cierre_exitoso_reclamante(
