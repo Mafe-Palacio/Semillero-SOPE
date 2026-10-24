@@ -4,11 +4,19 @@ from uuid import UUID
 import traceback
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.core.auth import get_current_user, get_current_admin_con_sede
+from src.core.auth import (
+    get_current_admin_con_sede,
+    get_current_user,
+    get_current_user_con_celular,
+)
 from src.crud.Reclamos_crud import ReclamoCRUD
-from src.crud.ObjetoEnCustodia_crud import ObjetoEnCustodiaCRUD
+from src.crud.ObjetoEnCustodia_crud import (
+    ObjetoEnCustodiaCRUD,
+    ObjetoNoDisponibleError,
+)
 from src.crud.PreguntaSeguridad_crud import PreguntaSeguridadCRUD
 from src.crud.RespuestaSeguridad_crud import RespuestaSeguridadCRUD
 from src.crud.Usuario_crud import UsuarioCRUD
@@ -31,17 +39,25 @@ async def crear_reclamo(
     reclamo_data: ReclamoCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_con_celular),
 ):
-    try:
-        # 1. Bloquear el objeto a nivel de negocio (HU08 - concurrencia)
-        objeto_crud = ObjetoEnCustodiaCRUD(db)
-        objeto_crud.bloquear_objeto_para_validacion(reclamo_data.objetoEnCustodia_id)
+    objeto_crud = ObjetoEnCustodiaCRUD(db)
+    objeto_id = reclamo_data.objetoEnCustodia_id
 
+    # 1. Reservar el objeto de forma atómica (HU08 - concurrencia): si otro usuario
+    #    ya tiene un reclamo en curso, se rechaza con 409.
+    try:
+        objeto_crud.reservar_para_reclamo(objeto_id)
+    except LookupError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ObjetoNoDisponibleError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+    try:
         # 2. Crear el reclamo
         crud = ReclamoCRUD(db)
         reclamo = crud.crear_reclamo(
-            objetoEnCustodia_id=reclamo_data.objetoEnCustodia_id,
+            objetoEnCustodia_id=objeto_id,
             usuario_id=current_user.id_usuario,
             es_presencial=reclamo_data.es_presencial,
             evidencia_url=reclamo_data.evidencia_url,
@@ -56,9 +72,18 @@ async def crear_reclamo(
         )
 
         return reclamo
-    except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
+        # Si no se pudo crear el reclamo, se libera la reserva del objeto para que
+        # no quede bloqueado sin ningún reclamo asociado.
+        db.rollback()
+        objeto_crud.liberar_objeto_validacion(objeto_id)
+        if isinstance(e, IntegrityError):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Este objeto ya tiene un proceso de reclamación en curso",
+            )
+        if isinstance(e, ValueError):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

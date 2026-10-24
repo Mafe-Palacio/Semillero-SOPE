@@ -134,7 +134,7 @@ async def obtener_todos_puntos_entrega(
                 sede_id=sede_id, skip=skip, limit=limit
             )
 
-        return crud.obtener_puntos_entregas(skip=skip, limit=limit)
+        return crud.obtener_puntos_entrega(skip=skip, limit=limit)
 
     except Exception as e:
         raise HTTPException(

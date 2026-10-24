@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 from typing import List, Optional
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 from src.entities.ObjetoEnCustodia import ObjetoEnCustodia
 from src.entities.PuntoEntrega import PuntoEntrega
@@ -8,6 +9,14 @@ from src.entities.PuntoEntrega import PuntoEntrega
 
 DIAS_POR_VENCER = 150  # ~5 meses
 DIAS_SIN_DUENO = 180  # ~6 meses
+
+# Estados en los que un objeto todavía puede ser reclamado (HU08/HU09: un objeto
+# "Por vencer" sigue en custodia; solo desaparece al archivarse).
+ESTADOS_RECLAMABLES = ("EN_CUSTODIA", "POR_VENCER")
+
+
+class ObjetoNoDisponibleError(ValueError):
+    """El objeto ya tiene un reclamo en curso o no está disponible (HU08)."""
 
 
 class ObjetoEnCustodiaCRUD:
@@ -131,7 +140,7 @@ class ObjetoEnCustodiaCRUD:
         return (
             self.db.query(ObjetoEnCustodia)
             .filter(
-                ObjetoEnCustodia.estado == "EN_CUSTODIA",
+                ObjetoEnCustodia.estado.in_(ESTADOS_RECLAMABLES),
                 ObjetoEnCustodia.en_proceso_validacion.is_(False),
             )
             .offset(skip)
@@ -339,6 +348,36 @@ class ObjetoEnCustodiaCRUD:
             self.db.commit()
             self.db.refresh(objeto)
 
+        return objeto
+
+    def reservar_para_reclamo(self, objetoEnCustodia_id: UUID) -> ObjetoEnCustodia:
+        """
+        Reserva el objeto para UN reclamo de forma atómica (HU08).
+
+        Hace un único UPDATE condicional (`en_proceso_validacion = false`), de modo
+        que si dos usuarios reclaman a la vez solo uno afecta una fila; el otro
+        recibe ObjetoNoDisponibleError. Lanza LookupError si el objeto no existe.
+        """
+        resultado = self.db.execute(
+            update(ObjetoEnCustodia)
+            .where(
+                ObjetoEnCustodia.objetoEnCustodia_id == objetoEnCustodia_id,
+                ObjetoEnCustodia.en_proceso_validacion.is_(False),
+                ObjetoEnCustodia.estado.in_(ESTADOS_RECLAMABLES),
+            )
+            .values(en_proceso_validacion=True)
+        )
+        self.db.commit()
+
+        objeto = self.obtener_objeto_custodia_por_id(objetoEnCustodia_id)
+        if resultado.rowcount == 0:
+            if objeto is None:
+                raise LookupError("Objeto en custodia no encontrado")
+            raise ObjetoNoDisponibleError(
+                "Este objeto ya tiene un proceso de reclamación en curso "
+                "o no está disponible para reclamar"
+            )
+        self.db.refresh(objeto)
         return objeto
 
     def bloquear_objeto_para_validacion(

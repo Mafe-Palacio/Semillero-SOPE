@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.utils.imagenes import UrlImagen
 
 
 class CategoriaObjeto(str, Enum):
@@ -53,7 +54,7 @@ class ReportePerdidaBase(BaseModel):
 class ReportePerdidaCreate(ReportePerdidaBase):
     """Datos requeridos para crear un reporte de pérdida."""
 
-    pass
+    imagen_url: UrlImagen = None
 
 
 class ReportePerdidaUpdate(BaseModel):
@@ -61,7 +62,7 @@ class ReportePerdidaUpdate(BaseModel):
 
     categoria: Optional[CategoriaObjeto] = None
     descripcion: Optional[str] = None
-    imagen_url: Optional[str] = None
+    imagen_url: UrlImagen = None
 
 
 class ReportePerdidaModeracion(BaseModel):
@@ -88,5 +89,20 @@ class ReportePerdidaResponse(ReportePerdidaBase):
     motivo_rechazo: Optional[str] = None
     eliminacion_solicitada: bool
     fecha_edicion: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ReportePerdidaPublico(BaseModel):
+    """Vista filtrada para el catálogo general (HU01): oculta la
+    descripción libre (donde suelen escribirse marcas o detalles únicos
+    del objeto), igual que ObjetoEnCustodiaPublico oculta detalles_internos."""
+
+    reportePerdida_id: UUID
+    categoria: CategoriaObjeto
+    lugar_perdida_id: UUID
+    fecha_perdida: date
+    imagen_url: Optional[str] = None
+    estado: EstadoPublicacion
 
     model_config = ConfigDict(from_attributes=True)

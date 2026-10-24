@@ -1,6 +1,7 @@
 """
 Aplicación FastAPI - Proyecto Objetos Perdidos
 Ejecutar con: uvicorn main:app --reload
+              python -m uvicorn main:app --reload
 """
 
 from contextlib import asynccontextmanager
@@ -36,6 +37,7 @@ from src.endpoints import (
     Usuario,
 )
 from src.endpoints.auth import router as auth_router
+from src.endpoints.Imagenes import router as imagenes_router
 
 # Importaciones de configuración y manejo de errores (basado en tu estructura)
 from src.core.config import get_settings
@@ -90,6 +92,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Permite al frontend leer los datos de paginación del historial de auditoría.
+    expose_headers=["X-Total-Count", "X-Total-Paginas", "X-Pagina", "X-Tamano-Pagina"],
 )
 
 
@@ -136,6 +140,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 app.include_router(auth_router)
 
 # Routers propios
+app.include_router(imagenes_router)
 app.include_router(Sede.router)
 app.include_router(Ubicacion.router)
 app.include_router(PuntoEntrega.router)
@@ -175,6 +180,7 @@ def inicio():
             "POST /auth/login - Inicia sesión y obtén el token JWT",
             "En /docs, botón 'Authorize' (candado) - pega 'Bearer <tu_token>' "
             "para probar los endpoints protegidos",
+            "POST /imagenes - Sube una imagen JPG/PNG (máx. 5 MB) y devuelve su URL",
             "GET /objetos-custodia/catalogo - Catálogo público sin autenticar",
             "GET /sedes, /ubicaciones, /puntos-entrega - Datos base para "
             "poder crear reportes/publicaciones de prueba",

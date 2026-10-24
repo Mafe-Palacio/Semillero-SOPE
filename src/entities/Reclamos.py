@@ -2,7 +2,7 @@ import uuid
 import enum
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Column, ForeignKey, String, DateTime, Boolean, Enum
+from sqlalchemy import Column, ForeignKey, Index, String, DateTime, Boolean, Enum, text
 from sqlalchemy.orm import relationship
 from src.database.config import Base
 from src.entities.Enums import EstadoReclamo
@@ -28,6 +28,22 @@ class Reclamo(Base):
     """
 
     __tablename__ = "reclamos"
+
+    # HU08: a lo sumo UN reclamo "vivo" por objeto. Es la garantía final a nivel de
+    # base de datos; la reserva atómica del objeto evita llegar hasta aquí.
+    __table_args__ = (
+        Index(
+            "idx_un_solo_reclamo_activo",
+            "objetoEnCustodia_id",
+            unique=True,
+            postgresql_where=text(
+                "estado IN ('ENVIADO', 'EN_REVISION', 'APROBADO', 'LISTO_PARA_RECOGER')"
+            ),
+            sqlite_where=text(
+                "estado IN ('ENVIADO', 'EN_REVISION', 'APROBADO', 'LISTO_PARA_RECOGER')"
+            ),
+        ),
+    )
 
     reclamo_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     objetoEnCustodia_id = Column(

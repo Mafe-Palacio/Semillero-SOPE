@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
+from src.utils.imagenes import UrlImagen
 
 
 class CategoriaObjeto(str, Enum):
@@ -46,6 +47,7 @@ class ObjetoEnCustodiaCreate(ObjetoEnCustodiaBase):
 
     publicacionEncontrado_id: Optional[UUID] = None
     detalles_internos: Optional[str] = None
+    imagen_url: UrlImagen = None
 
 
 class ObjetoEnCustodiaUpdate(BaseModel):
@@ -55,7 +57,7 @@ class ObjetoEnCustodiaUpdate(BaseModel):
 
     categoria: Optional[CategoriaObjeto] = None
     descripcion: Optional[str] = None
-    imagen_url: Optional[str] = None
+    imagen_url: UrlImagen = None
     detalles_internos: Optional[str] = None
 
 
