@@ -31,6 +31,12 @@ class Settings(BaseSettings):
         le=24 * 60,
         validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES",
     )
+    refresh_token_expire_days: int = Field(
+        default=7,
+        ge=1,
+        le=30,
+        validation_alias="REFRESH_TOKEN_EXPIRE_DAYS",
+    )
 
     # Orígenes permitidos separados por coma. Con credenciales no se puede usar "*".
     cors_origins: str = Field(
@@ -54,9 +60,13 @@ class Settings(BaseSettings):
     smtp_from: str = Field(default="", validation_alias="SMTP_FROM")
 
     # Cloudinary (carga de imágenes, HU28). Sin credenciales, POST /imagenes responde 503.
-    cloudinary_cloud_name: str = Field(default="", validation_alias="CLOUDINARY_CLOUD_NAME")
+    cloudinary_cloud_name: str = Field(
+        default="", validation_alias="CLOUDINARY_CLOUD_NAME"
+    )
     cloudinary_api_key: str = Field(default="", validation_alias="CLOUDINARY_API_KEY")
-    cloudinary_api_secret: str = Field(default="", validation_alias="CLOUDINARY_API_SECRET")
+    cloudinary_api_secret: str = Field(
+        default="", validation_alias="CLOUDINARY_API_SECRET"
+    )
     # Hosts permitidos para las URL de imagen, separados por coma (ej. res.cloudinary.com).
     # Vacío = se acepta cualquier URL https.
     image_allowed_hosts: str = Field(default="", validation_alias="IMAGE_ALLOWED_HOSTS")
@@ -70,7 +80,9 @@ class Settings(BaseSettings):
         return v.strip()
 
     def image_allowed_hosts_list(self) -> list[str]:
-        return [h.strip().lower() for h in self.image_allowed_hosts.split(",") if h.strip()]
+        return [
+            h.strip().lower() for h in self.image_allowed_hosts.split(",") if h.strip()
+        ]
 
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

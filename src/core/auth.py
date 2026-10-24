@@ -3,6 +3,7 @@ Autenticación JWT: dependencia reutilizable para rutas protegidas.
 """
 
 from datetime import datetime, timedelta, timezone
+from os import access
 from typing import Annotated
 from uuid import UUID
 
@@ -31,11 +32,7 @@ class CurrentUser(BaseModel):
 
 
 def create_access_token(
-    *,
-    subject: UUID,
-    correo: str,
-    rol: str,
-    settings: Settings,
+    *, subject: UUID, correo: str, rol: str, settings: Settings, type: "access"
 ) -> str:
     """Genera un JWT de acceso (HS256) con expiración configurada."""
     now = datetime.now(timezone.utc)
@@ -47,6 +44,31 @@ def create_access_token(
         "iat": int(now.timestamp()),
         "exp": expire,
     }
+    return jwt.encode(
+        payload,
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
+def create_refresh_token(
+    *,
+    subject: UUID,
+    settings: Settings,
+) -> str:
+    """Genera un JWT para renovar el token de acceso."""
+
+    now = datetime.now(timezone.utc)
+
+    expire = now + timedelta(days=settings.refresh_token_expire_days)
+
+    payload = {
+        "sub": str(subject),
+        "type": "refresh",
+        "iat": int(now.timestamp()),
+        "exp": expire,
+    }
+
     return jwt.encode(
         payload,
         settings.jwt_secret_key,
@@ -73,6 +95,9 @@ async def get_current_user(
     token = credentials.credentials
     try:
         payload = _decode_token(token, settings)
+
+        if payload.get("type") != "access":
+            raise JWTError("Tipo de token inválido")
         sub = payload.get("sub")
         if not sub:
             raise HTTPException(status_code=401, detail="Token inválido")

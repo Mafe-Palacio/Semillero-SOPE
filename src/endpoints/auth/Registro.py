@@ -9,7 +9,10 @@ import traceback
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.core.auth import CurrentUser, create_access_token
+from src.core.auth import (
+    create_access_token,
+    create_refresh_token,
+)
 from src.core.config import get_settings
 from src.crud.CodigoVerificacion_crud import CodigoVerificacionCRUD
 from src.crud.Usuario_crud import UsuarioCRUD
@@ -155,14 +158,20 @@ async def verificar_registro(
             )
 
         settings = get_settings()
-        token = create_access_token(
+        access_token = create_access_token(
             subject=usuario.usuario_id,
             correo=usuario.correo,
             rol=usuario.rol,
             settings=settings,
         )
-
-        return TokenResponse(access_token=token)
+        refresh_token = create_refresh_token(
+            subject=usuario.usuario_id,
+            settings=settings,
+        )
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
 
     except HTTPException:
         raise
