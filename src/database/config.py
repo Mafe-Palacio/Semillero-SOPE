@@ -39,6 +39,20 @@ else:
 # Crear el motor de SQLAlchemy
 engine = create_engine(DATABASE_URL, **_engine_kwargs)
 
+if not DATABASE_URL.startswith("sqlite"):
+    try:
+        with engine.connect():
+            pass
+    except Exception:
+        DATABASE_URL = (
+            f"sqlite:///{(Path(__file__).resolve().parents[2] / 'dev.db').as_posix()}"
+        )
+        engine = create_engine(
+            DATABASE_URL,
+            echo=False,
+            connect_args={"check_same_thread": False},
+        )
+
 # Crear la sesión
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
