@@ -28,7 +28,7 @@ import re
 import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
-
+import ssl
 from src.core.config import Settings, get_settings
 
 logger = logging.getLogger("notification_dispatcher")
@@ -89,15 +89,34 @@ class NotificationDispatcher:
 
         try:
             with smtplib.SMTP(
-                self.settings.smtp_host, self.settings.smtp_port
+                self.settings.smtp_host,
+                self.settings.smtp_port,
+                local_hostname="localhost",
+                timeout=30,
             ) as server:
-                server.starttls()
-                server.login(self.settings.smtp_user, self.settings.smtp_pass)
-                server.send_message(mensaje)
+                server.ehlo()
+                server.starttls(context=ssl.create_default_context())
+                server.ehlo()
+
+                server.login(
+                    self.settings.smtp_user,
+                    self.settings.smtp_pass,
+                )
+
+                server.sendmail(
+                    self.settings.smtp_from or self.settings.smtp_user,
+                    destinatario,
+                    mensaje.as_string(),
+                )
+
             return True
 
         except Exception:
-            logger.exception("Error al enviar correo a %s: [%s]", destinatario, asunto)
+            logger.exception(
+                "Error al enviar correo a %s: [%s]",
+                destinatario,
+                asunto,
+            )
             return False
 
     # ------------------------------------------------------------------
