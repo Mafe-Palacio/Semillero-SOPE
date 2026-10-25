@@ -64,6 +64,7 @@ async def login(
             correo=usuario.correo,
             rol=usuario.rol,
             settings=settings,
+            type="access",
         )
 
         refresh_token = create_refresh_token(
@@ -148,6 +149,7 @@ async def refresh_access_token(
         correo=usuario.correo,
         rol=usuario.rol,
         settings=settings,
+        type="access",
     )
 
     # 5. Devolver el token nuevo y conservar el Refresh Token

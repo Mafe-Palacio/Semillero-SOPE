@@ -163,6 +163,7 @@ async def verificar_registro(
             correo=usuario.correo,
             rol=usuario.rol,
             settings=settings,
+            type="access",
         )
         refresh_token = create_refresh_token(
             subject=usuario.usuario_id,
