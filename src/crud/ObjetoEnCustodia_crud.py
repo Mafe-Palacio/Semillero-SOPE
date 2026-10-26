@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 from typing import List, Optional
 from sqlalchemy import update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from src.entities.ObjetoEnCustodia import ObjetoEnCustodia
 from src.entities.PuntoEntrega import PuntoEntrega
 from src.entities.PuntoEntrega import PuntoEntrega
@@ -139,6 +139,7 @@ class ObjetoEnCustodiaCRUD:
         """
         return (
             self.db.query(ObjetoEnCustodia)
+            .options(joinedload(ObjetoEnCustodia.lugar_origen))
             .filter(
                 ObjetoEnCustodia.estado.in_(ESTADOS_RECLAMABLES),
                 ObjetoEnCustodia.en_proceso_validacion.is_(False),

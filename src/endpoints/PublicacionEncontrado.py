@@ -34,6 +34,13 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
+# Búsqueda pública (CU08: también para visitantes sin sesión). Se registra ANTES que
+# `router` en main.py para que "/buscar" no se confunda con "/{publicacion_id}".
+public_router = APIRouter(
+    prefix="/publicaciones-encontradas",
+    tags=["Catálogo público"],
+)
+
 
 def _verificar_sede_admin(
     publicacion: PublicacionEncontrado, current_admin, db: Session
@@ -96,7 +103,7 @@ async def obtener_mis_publicaciones(
     )
 
 
-@router.get("/buscar", response_model=List[PublicacionEncontradoPublico])
+@public_router.get("/buscar", response_model=List[PublicacionEncontradoPublico])
 async def buscar_publicaciones_por_sede_hallazgo(
     sede_id: UUID = Query(..., description="Sede donde se busca el objeto encontrado"),
     categoria: Optional[str] = Query(None),
@@ -105,7 +112,7 @@ async def buscar_publicaciones_por_sede_hallazgo(
     db: Session = Depends(get_db),
 ):
     """
-    Búsqueda pública (cualquier usuario autenticado): objetos APROBADOS
+    Búsqueda pública, sin necesidad de sesión (CU08): objetos APROBADOS
     encontrados en una sede — para que alguien que perdió algo en Robledo
     revise qué ha aparecido ahí, sin importar a qué oficina fue entregado.
     """

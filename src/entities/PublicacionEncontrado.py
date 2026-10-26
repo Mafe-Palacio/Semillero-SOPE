@@ -105,6 +105,14 @@ class PublicacionEncontrado(Base):
         "ObjetoEnCustodia", back_populates="publicacion_encontrado", uselist=False
     )
 
+    @property
+    def lugar_hallazgo_nombre(self) -> str | None:
+        return self.lugar_hallazgo.nombre if self.lugar_hallazgo else None
+
+    @property
+    def lugar_entrega_fisica_nombre(self) -> str | None:
+        return self.lugar_entrega_fisica.nombre if self.lugar_entrega_fisica else None
+
     def es_visible_publicamente(self) -> bool:
         """Verifica si la publicación está aprobada para ser consultada públicamente."""
         return self.estado == "APROBADA"

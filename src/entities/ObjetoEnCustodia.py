@@ -107,6 +107,11 @@ class ObjetoEnCustodia(Base):
         "PosibleCoincidencia", back_populates="objeto_custodia"
     )
 
+    @property
+    def lugar_origen_nombre(self) -> str | None:
+        """Nombre del punto de entrega de origen (para la vista pública)."""
+        return self.lugar_origen.nombre if self.lugar_origen else None
+
     def esta_disponible_para_reclamo(self) -> bool:
         """Verifica si el objeto está en custodia y libre de validaciones activas para ser reclamado."""
         return self.estado == "EN_CUSTODIA" and not self.en_proceso_validacion

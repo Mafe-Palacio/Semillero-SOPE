@@ -15,7 +15,7 @@ from fastapi.responses import Response
 
 from src.database.config import create_tables
 
-# Routers de tu compañera
+# Routers de salo
 from src.endpoints import (
     ActaEntrega,
     AuditoriaLog,
@@ -24,7 +24,7 @@ from src.endpoints import (
     RespuestSeguridad,
 )
 
-# Routers propios
+# Routers de mafe
 from src.endpoints import (
     CodigoVerificacion,
     ObjetoEnCustodia,
@@ -38,6 +38,10 @@ from src.endpoints import (
 )
 from src.endpoints.auth import router as auth_router
 from src.endpoints.Imagenes import router as imagenes_router
+from src.endpoints.ObjetoEnCustodia import public_router as custodia_publico_router
+from src.endpoints.PublicacionEncontrado import (
+    public_router as publicaciones_publico_router,
+)
 
 # Importaciones de configuración y manejo de errores (basado en tu estructura)
 from src.core.config import get_settings
@@ -141,6 +145,11 @@ app.include_router(auth_router)
 
 # Routers propios
 app.include_router(imagenes_router)
+
+# Rutas públicas (sin token). Deben ir antes que los routers con rutas "/{id}".
+app.include_router(custodia_publico_router)
+app.include_router(publicaciones_publico_router)
+
 app.include_router(Sede.router)
 app.include_router(Ubicacion.router)
 app.include_router(PuntoEntrega.router)
@@ -178,10 +187,10 @@ def inicio():
         "uso": [
             "POST /auth/registro - Crea una cuenta nueva (rol USER)",
             "POST /auth/login - Inicia sesión y obtén el token JWT",
-            "En /docs, botón 'Authorize' (candado) - pega 'Bearer <tu_token>' "
+            "En /docs, botón 'Authorize' (candado) - pega solo el token (Swagger agrega 'Bearer') "
             "para probar los endpoints protegidos",
             "POST /imagenes - Sube una imagen JPG/PNG (máx. 5 MB) y devuelve su URL",
-            "GET /objetos-custodia/catalogo - Catálogo público sin autenticar",
+            "GET /objetos-custodia/catalogo y GET /publicaciones-encontradas/buscar - Catálogo público (no requieren token)",
             "GET /sedes, /ubicaciones, /puntos-entrega - Datos base para "
             "poder crear reportes/publicaciones de prueba",
         ],

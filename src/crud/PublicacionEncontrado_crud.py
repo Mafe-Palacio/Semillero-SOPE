@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from src.entities.PublicacionEncontrado import PublicacionEncontrado
 from src.entities.Ubicacion import Ubicacion
 from src.entities.PuntoEntrega import PuntoEntrega
@@ -281,6 +281,10 @@ class PublicacionEncontradoCRUD:
         """
         query = (
             self.db.query(PublicacionEncontrado)
+            .options(
+                joinedload(PublicacionEncontrado.lugar_hallazgo),
+                joinedload(PublicacionEncontrado.lugar_entrega_fisica),
+            )
             .join(
                 Ubicacion,
                 PublicacionEncontrado.lugar_hallazgo_id == Ubicacion.ubicacion_id,

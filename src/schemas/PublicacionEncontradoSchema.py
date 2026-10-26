@@ -93,7 +93,9 @@ class PublicacionEncontradoPublico(BaseModel):
     publicacionEncontrado_id: UUID
     categoria: CategoriaObjeto
     lugar_hallazgo_id: UUID
+    lugar_hallazgo_nombre: Optional[str] = None
     lugar_entrega_fisica_id: UUID
+    lugar_entrega_fisica_nombre: Optional[str] = None
     fecha_hallazgo: date
     imagen_url: Optional[str] = None
     estado: EstadoPublicacion

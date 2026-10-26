@@ -35,6 +35,13 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
+# Rutas públicas (CU08: también para visitantes sin sesión). Se registra ANTES que
+# `router` en main.py para que "/catalogo" no se confunda con "/{objetoEnCustodia_id}".
+public_router = APIRouter(
+    prefix="/objetos-custodia",
+    tags=["Catálogo público"],
+)
+
 
 def _validar_punto_entrega_de_sede(
     db: Session, puntoEntrega_id: UUID, sede_id: UUID
@@ -117,14 +124,14 @@ async def registrar_objeto_custodia(
         )
 
 
-@router.get("/catalogo", response_model=List[ObjetoEnCustodiaPublico])
+@public_router.get("/catalogo", response_model=List[ObjetoEnCustodiaPublico])
 async def obtener_catalogo_publico(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    """Vista pública del catálogo (HU01): solo objetos disponibles para
-    reclamo, sin detalles_internos ni datos administrativos."""
+    """Vista pública del catálogo, sin necesidad de sesión (HU01, CU08): solo objetos
+    disponibles para reclamo, sin detalles_internos ni datos administrativos."""
     try:
         crud = ObjetoEnCustodiaCRUD(db)
         return crud.obtener_objetos_custodia_disponibles(skip=skip, limit=limit)

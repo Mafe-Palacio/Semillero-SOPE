@@ -8,6 +8,7 @@ from src.crud.ActaEntrega_crud import ActaEntregaCRUD
 from src.crud.Reclamos_crud import ReclamoCRUD
 from src.crud.ObjetoEnCustodia_crud import ObjetoEnCustodiaCRUD
 from src.database.config import get_db
+from src.entities.Enums import EstadoReclamo
 from src.schemas.ActaEntregaSchema import ActaEntregaCreate, ActaEntregaResponse
 from src.utils.notifications import NotificationDispatcher
 
@@ -50,6 +51,8 @@ async def registrar_acta_entrega(
 
         objeto_crud = ObjetoEnCustodiaCRUD(db)
         objeto = objeto_crud.marcar_objeto_reclamado(reclamo.objetoEnCustodia_id)
+        # El acta cierra el reclamo: queda RECLAMADO igual que el objeto.
+        reclamo_crud.actualizar_reclamo(reclamo.reclamo_id, estado=EstadoReclamo.RECLAMADO)
 
         dispatcher = NotificationDispatcher()
         background_tasks.add_task(

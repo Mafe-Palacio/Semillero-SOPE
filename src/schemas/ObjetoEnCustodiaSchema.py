@@ -84,6 +84,7 @@ class ObjetoEnCustodiaPublico(BaseModel):
     objetoEnCustodia_id: UUID
     categoria: CategoriaObjeto
     lugar_origen_id: UUID
+    lugar_origen_nombre: Optional[str] = None
     fecha_ingreso: date
     imagen_url: Optional[str] = None
     estado: EstadoCustodia
