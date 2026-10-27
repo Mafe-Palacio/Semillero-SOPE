@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from src.core.config import Settings, get_settings
+from src.core.auditoria import set_actor
 from src.database.config import get_db
 
 from src.entities.Usuario import Usuario
@@ -117,6 +118,7 @@ async def get_current_user(
     if user.is_blocked:
         raise HTTPException(status_code=403, detail="Usuario bloqueado")
 
+    set_actor(user.usuario_id)  # la auditoría automática registra quién hizo el cambio
     return CurrentUser(
         id_usuario=user.usuario_id,
         correo=user.correo,
