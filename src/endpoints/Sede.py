@@ -240,3 +240,13 @@ async def desactivar_sede(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al desactivar la sede: {str(e)}",
         )
+
+
+from src.entities.Sede import Sede as SedeModel
+
+public_router = APIRouter(prefix="/sedes", tags=["Catálogo público"])
+
+
+@public_router.get("/publicas", response_model=List[SedeResponse])
+async def listar_sedes_publicas(db: Session = Depends(get_db)):
+    return db.query(SedeModel).filter(SedeModel.activa == True).all()

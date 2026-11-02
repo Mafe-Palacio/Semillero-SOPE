@@ -16,9 +16,11 @@ class ReclamoBase(BaseModel):
     es_presencial: bool
 
 
-class ReclamoCreate(ReclamoBase):
+class ReclamoCreate(BaseModel):
     """Esquema utilizado para crear un nuevo Reclamo."""
 
+    objetoEnCustodia_id: UUID
+    es_presencial: bool
     evidencia_url: UrlImagen = None
 
 

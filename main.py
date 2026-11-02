@@ -150,6 +150,7 @@ app.include_router(imagenes_router)
 app.include_router(custodia_publico_router)
 app.include_router(publicaciones_publico_router)
 
+app.include_router(Sede.public_router)
 app.include_router(Sede.router)
 app.include_router(Ubicacion.router)
 app.include_router(PuntoEntrega.router)
