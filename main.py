@@ -18,6 +18,7 @@ from src.database.config import create_tables
 # Routers de salo
 from src.endpoints import (
     ActaEntrega,
+    Analitica,
     AuditoriaLog,
     PosibleCoincidencia,
     Reclamos,
@@ -166,6 +167,8 @@ app.include_router(RespuestSeguridad.router)
 app.include_router(PosibleCoincidencia.router)
 app.include_router(ActaEntrega.router)
 app.include_router(AuditoriaLog.router)
+app.include_router(Analitica.metricas_router)
+app.include_router(Analitica.exportaciones_router)
 
 
 @app.get("/")

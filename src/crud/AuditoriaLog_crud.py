@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from src.entities.AuditoriaLog import AuditLog, AccionAuditoria
+from src.entities.Usuario import Usuario
 
 
 # HU10 CA2 / CU21: el historial se consulta siempre de 10 en 10 registros.
@@ -53,12 +54,23 @@ class AuditLogCRUD:
         accion: Optional[AccionAuditoria] = None,
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
+        entidades: Optional[List[str]] = None,
+        usuario_id: Optional[UUID] = None,
+        rol_actor: Optional[str] = None,
     ) -> Tuple[List[AuditLog], int]:
         """Página de 10 registros (más recientes primero) con filtros opcionales
         por tipo de entidad, acción y rango de fechas. Devuelve (registros, total)."""
         consulta = self.db.query(AuditLog)
         if entidad:
             consulta = consulta.filter(AuditLog.entidad == entidad)
+        if entidades:
+            consulta = consulta.filter(AuditLog.entidad.in_(entidades))
+        if usuario_id:
+            consulta = consulta.filter(AuditLog.usuario_id == usuario_id)
+        if rol_actor:
+            consulta = consulta.join(
+                Usuario, Usuario.usuario_id == AuditLog.usuario_id
+            ).filter(Usuario.rol == rol_actor)
         if accion:
             consulta = consulta.filter(AuditLog.accion == accion)
         if fecha_desde:

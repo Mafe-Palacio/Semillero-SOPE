@@ -2,7 +2,8 @@ from typing import List
 from uuid import UUID
 import traceback
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, BackgroundTasks
+from typing import Optional
 from sqlalchemy.orm import Session
 from src.core.auth import (
     get_current_user,
@@ -16,6 +17,7 @@ from src.crud.Usuario_crud import UsuarioCRUD
 from src.database.config import get_db
 from src.schemas.PosibleCoincidenciaSchema import (
     PosibleCoincidenciaCreate,
+    PosibleCoincidenciaDetalle,
     PosibleCoincidenciaResponse,
     PosibleCoincidenciaUpdate,
 )
@@ -128,6 +130,41 @@ async def crear_coincidencia(
         return coincidencia
     except Exception as e:
         traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get("", response_model=List[PosibleCoincidenciaDetalle])
+async def listar_coincidencias(
+    response: Response,
+    reporte_perdida_id: Optional[UUID] = Query(None),
+    objeto_id: Optional[UUID] = Query(None, description="Objeto en custodia"),
+    usuario_id: Optional[UUID] = Query(None, description="Dueño del reporte"),
+    notificado: Optional[bool] = Query(None),
+    score_minimo: Optional[int] = Query(None, ge=0),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin_con_sede),
+):
+    """Smart Match: coincidencias entre objetos en custodia y reportes de pérdida
+    de la sede (la del admin, o la que el SUPERADMIN eligió con X-Sede-Id).
+    El total viene en la cabecera X-Total-Count."""
+    try:
+        filas, total = PosibleCoincidenciaCRUD(db).listar_de_sede(
+            current_admin.sede_id,
+            reporte_perdida_id=reporte_perdida_id,
+            objeto_id=objeto_id,
+            usuario_id=usuario_id,
+            notificado=notificado,
+            score_minimo=score_minimo,
+            skip=skip,
+            limit=limit,
+        )
+        response.headers["X-Total-Count"] = str(total)
+        return filas
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )

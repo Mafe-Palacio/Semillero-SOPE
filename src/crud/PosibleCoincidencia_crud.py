@@ -199,3 +199,80 @@ class PosibleCoincidenciaCRUD:
         self.db.commit()
         self.db.refresh(coincidencia)
         return coincidencia
+
+    def listar_de_sede(
+        self,
+        sede_id: UUID,
+        *,
+        reporte_perdida_id: Optional[UUID] = None,
+        objeto_id: Optional[UUID] = None,
+        usuario_id: Optional[UUID] = None,
+        notificado: Optional[bool] = None,
+        score_minimo: Optional[int] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ):
+        """Coincidencias de los objetos de la sede, más recientes primero.
+        Devuelve (filas, total); cada fila trae los textos para mostrar en la tabla."""
+        from src.entities.ReportePerdida import ReportePerdida
+        from src.entities.Usuario import Usuario
+
+        consulta = (
+            self.db.query(PosibleCoincidencia, ObjetoEnCustodia, ReportePerdida, Usuario)
+            .join(
+                ObjetoEnCustodia,
+                PosibleCoincidencia.objetoEnCustodia_id
+                == ObjetoEnCustodia.objetoEnCustodia_id,
+            )
+            .join(
+                PuntoEntrega,
+                ObjetoEnCustodia.lugar_origen_id == PuntoEntrega.puntoEntrega_id,
+            )
+            .join(
+                ReportePerdida,
+                PosibleCoincidencia.reportePerdida_id == ReportePerdida.reportePerdida_id,
+            )
+            .join(Usuario, PosibleCoincidencia.usuario_id == Usuario.usuario_id)
+            .filter(PuntoEntrega.sede_id == sede_id)
+        )
+        if reporte_perdida_id:
+            consulta = consulta.filter(
+                PosibleCoincidencia.reportePerdida_id == reporte_perdida_id
+            )
+        if objeto_id:
+            consulta = consulta.filter(
+                PosibleCoincidencia.objetoEnCustodia_id == objeto_id
+            )
+        if usuario_id:
+            consulta = consulta.filter(PosibleCoincidencia.usuario_id == usuario_id)
+        if notificado is not None:
+            consulta = consulta.filter(PosibleCoincidencia.notificado == notificado)
+        if score_minimo is not None:
+            consulta = consulta.filter(PosibleCoincidencia.score >= score_minimo)
+
+        total = consulta.count()
+        filas = (
+            consulta.order_by(
+                PosibleCoincidencia.fecha_deteccion.desc(),
+                PosibleCoincidencia.score.desc(),
+            )
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "posibleCoincidencia_id": c.posibleCoincidencia_id,
+                "objetoEnCustodia_id": c.objetoEnCustodia_id,
+                "reportePerdida_id": c.reportePerdida_id,
+                "usuario_id": c.usuario_id,
+                "score": c.score,
+                "notificado": c.notificado,
+                "fecha_deteccion": c.fecha_deteccion,
+                "objeto_descripcion": o.descripcion,
+                "objeto_categoria": getattr(o.categoria, "value", o.categoria),
+                "reporte_descripcion": r.descripcion,
+                "usuario_nombre": u.nombre_completo,
+            }
+            for c, o, r, u in filas
+        ], total

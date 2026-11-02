@@ -34,3 +34,12 @@ class PosibleCoincidenciaResponse(PosibleCoincidenciaBase):
     fecha_deteccion: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PosibleCoincidenciaDetalle(PosibleCoincidenciaResponse):
+    """Coincidencia con datos legibles para la tabla del sitio administrativo."""
+
+    objeto_descripcion: Optional[str] = None
+    objeto_categoria: Optional[str] = None
+    reporte_descripcion: Optional[str] = None
+    usuario_nombre: Optional[str] = None

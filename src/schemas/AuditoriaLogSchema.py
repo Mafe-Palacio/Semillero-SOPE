@@ -30,3 +30,13 @@ class AuditLogResponse(AuditLogBase):
     fecha: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AuditLogDetalleResponse(AuditLogResponse):
+    """Registro de auditoría con datos legibles para el sitio administrativo
+    (quién, en qué módulo, qué hizo y un resumen en lenguaje natural)."""
+
+    usuario_nombre: Optional[str] = None
+    usuario_rol: Optional[str] = None
+    modulo: Optional[str] = None
+    resumen: Optional[str] = None

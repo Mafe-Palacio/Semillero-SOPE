@@ -1,6 +1,8 @@
+from datetime import date
+from typing import List, Optional
 from uuid import UUID
 import traceback
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from src.core.auth import get_current_admin_con_sede
@@ -65,6 +67,40 @@ async def registrar_acta_entrega(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
         traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get("", response_model=List[ActaEntregaResponse])
+async def listar_actas(
+    response: Response,
+    fecha_desde: Optional[date] = Query(None, description="Entregas desde (inclusive)"),
+    fecha_hasta: Optional[date] = Query(None, description="Entregas hasta (inclusive)"),
+    reclamo_id: Optional[UUID] = Query(None),
+    procesada_por: Optional[UUID] = Query(None, description="Administrador que la procesó"),
+    validacion_verbal: Optional[bool] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin_con_sede),
+):
+    """Histórico de actas de entrega de la sede (HU10/HU13). El total viene en
+    la cabecera X-Total-Count."""
+    try:
+        actas, total = ActaEntregaCRUD(db).listar_de_sede(
+            current_admin.sede_id,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            reclamo_id=reclamo_id,
+            procesada_por=procesada_por,
+            validacion_verbal=validacion_verbal,
+            skip=skip,
+            limit=limit,
+        )
+        response.headers["X-Total-Count"] = str(total)
+        return actas
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )

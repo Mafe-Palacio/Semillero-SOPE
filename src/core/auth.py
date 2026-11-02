@@ -7,7 +7,7 @@ from os import access
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
@@ -17,6 +17,7 @@ from src.core.config import Settings, get_settings
 from src.core.auditoria import set_actor
 from src.database.config import get_db
 
+from src.entities.Sede import Sede
 from src.entities.Usuario import Usuario
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -28,7 +29,9 @@ class CurrentUser(BaseModel):
     id_usuario: UUID
     correo: str
     rol: str
-    sede_id: UUID | None = None  # solo tiene valor si rol == ADMIN
+    # ADMIN: su sede asignada. SUPERADMIN: la sede que eligió supervisar mediante
+    # la cabecera X-Sede-Id (None si no eligió ninguna).
+    sede_id: UUID | None = None
     celular: str | None = None
 
 
@@ -89,6 +92,7 @@ def _decode_token(token: str, settings: Settings) -> dict:
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: Session = Depends(get_db),
+    x_sede_id: Annotated[UUID | None, Header(alias="X-Sede-Id")] = None,
 ) -> CurrentUser:
     """Valida el Bearer JWT, comprueba usuario activo en BD y devuelve el contexto."""
     settings = get_settings()
@@ -119,11 +123,21 @@ async def get_current_user(
         raise HTTPException(status_code=403, detail="Usuario bloqueado")
 
     set_actor(user.usuario_id)  # la auditoría automática registra quién hizo el cambio
+
+    sede_activa = user.sede_id
+    if user.rol == "SUPERADMIN" and x_sede_id is not None:
+        # El superadmin no tiene sede propia: elige cuál supervisar en cada petición.
+        # Para el resto de roles la cabecera se ignora (un ADMIN no puede cambiar de sede).
+        sede = db.query(Sede).filter(Sede.sede_id == x_sede_id).first()
+        if not sede:
+            raise HTTPException(status_code=404, detail="La sede indicada no existe")
+        sede_activa = sede.sede_id
+
     return CurrentUser(
         id_usuario=user.usuario_id,
         correo=user.correo,
         rol=user.rol,
-        sede_id=user.sede_id,
+        sede_id=sede_activa,
         celular=user.celular,
     )
 
@@ -173,9 +187,21 @@ async def get_current_superadmin(
 async def get_current_admin_con_sede(
     current_admin: CurrentUser = Depends(get_current_admin),
 ) -> CurrentUser:
-    """Exige ADMIN con una sede asignada. Úsala en endpoints donde el admin
-    solo debe poder operar sobre los datos de SU propia sede."""
+    """Exige un administrador con una sede de trabajo. Úsala en endpoints donde
+    solo se debe operar sobre los datos de UNA sede.
+
+    - ADMIN: su sede asignada.
+    - SUPERADMIN: la sede que eligió con la cabecera `X-Sede-Id`.
+    """
     if current_admin.sede_id is None:
+        if current_admin.rol == "SUPERADMIN":
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Selecciona la sede que vas a supervisar "
+                    "(envía la cabecera X-Sede-Id)"
+                ),
+            )
         raise HTTPException(
             status_code=403,
             detail="El administrador no tiene una sede asignada",

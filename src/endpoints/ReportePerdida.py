@@ -8,6 +8,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.core.auth import (
@@ -18,6 +19,7 @@ from src.core.auth import (
 from src.crud.ReportePerdida_crud import ReportePerdidaCRUD
 from src.crud.Ubicacion_crud import UbicacionCRUD
 from src.database.config import get_db
+from src.schemas.schemas import RespuestaAPI
 from src.entities.ReportePerdida import ReportePerdida
 from src.schemas.ReportePerdidaSchema import (
     ReportePerdidaCreate,
@@ -315,4 +317,45 @@ async def resolver_eliminacion_reporte(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al resolver la solicitud de eliminación: {str(e)}",
+        )
+
+
+@router.delete("/{reporte_id}", response_model=RespuestaAPI)
+async def eliminar_reporte_perdida(
+    reporte_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin_con_sede),
+):
+    """El administrador elimina un reporte de pérdida de su sede (p. ej. SPAM o contenido
+    indebido), sin esperar a que el usuario lo solicite (HU02). El borrado es
+    definitivo y queda en la auditoría. Si tiene datos asociados que lo
+    impiden, responde 409."""
+    try:
+        crud = ReportePerdidaCRUD(db)
+        reporte = crud.obtener_reporte_perdida_por_id(reporte_id)
+        if not reporte:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Reporte no encontrado"
+            )
+
+        _verificar_sede_admin(reporte, current_admin, db)
+
+        try:
+            db.delete(reporte)
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No se puede eliminar: tiene objetos en custodia o coincidencias asociadas. Ciérrala o recházala en su lugar.",
+            )
+        return RespuestaAPI(mensaje="Reporte eliminado", exito=True)
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al eliminar: {str(e)}",
         )

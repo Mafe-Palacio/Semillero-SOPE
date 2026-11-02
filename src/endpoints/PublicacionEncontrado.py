@@ -8,6 +8,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.core.auth import (
@@ -18,6 +19,7 @@ from src.core.auth import (
 from src.crud.PublicacionEncontrado_crud import PublicacionEncontradoCRUD
 from src.crud.PuntoEntrega_crud import PuntoEntregaCRUD
 from src.database.config import get_db
+from src.schemas.schemas import RespuestaAPI
 from src.entities.PublicacionEncontrado import PublicacionEncontrado
 from src.schemas.PublicacionEncontradoSchema import (
     PublicacionEncontradoCreate,
@@ -361,4 +363,59 @@ async def resolver_eliminacion_publicacion(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al resolver la solicitud de eliminación: {str(e)}",
+        )
+
+
+@router.delete("/{publicacion_id}", response_model=RespuestaAPI)
+async def eliminar_publicacion_encontrada(
+    publicacion_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin_con_sede),
+):
+    """El administrador elimina una publicación de objeto encontrado de su sede (p. ej. SPAM o contenido
+    indebido), sin esperar a que el usuario lo solicite (HU02). El borrado es
+    definitivo y queda en la auditoría. Si el objeto ya fue recibido en
+    custodia, responde 409 (se gestiona desde Objetos en custodia)."""
+    try:
+        crud = PublicacionEncontradoCRUD(db)
+        publicacion = crud.obtener_publicacion_encontrada_por_id(publicacion_id)
+        if not publicacion:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Publicación no encontrada"
+            )
+
+        _verificar_sede_admin(publicacion, current_admin, db)
+
+        from src.entities.ObjetoEnCustodia import ObjetoEnCustodia
+
+        if (
+            db.query(ObjetoEnCustodia)
+            .filter(ObjetoEnCustodia.publicacionEncontrado_id == publicacion_id)
+            .first()
+        ):
+            # Ya hay un objeto físico en la oficina: borrar la publicación dejaría
+            # al objeto sin su origen. Hay que gestionarlo desde Objetos en custodia.
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No se puede eliminar: el objeto ya fue recibido en custodia.",
+            )
+
+        try:
+            db.delete(publicacion)
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No se puede eliminar: tiene objetos en custodia o coincidencias asociadas. Ciérrala o recházala en su lugar.",
+            )
+        return RespuestaAPI(mensaje="Publicación eliminada", exito=True)
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al eliminar: {str(e)}",
         )

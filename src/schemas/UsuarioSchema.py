@@ -91,3 +91,50 @@ class UsuarioResponse(UsuarioBase):
     fecha_edicion: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ConteoPorEstado(BaseModel):
+    """Cantidad total de registros y su desglose por estado."""
+
+    total: int = 0
+    por_estado: dict[str, int] = {}
+
+
+class UsuarioResumen(UsuarioResponse):
+    """Usuario con su actividad, para el módulo "Usuarios" del sitio administrativo.
+
+    - reportes_perdida: objetos que el usuario reportó como perdidos.
+    - publicaciones_encontradas: objetos que el usuario dice haber encontrado.
+    - reclamos: reclamos que ha iniciado sobre objetos en custodia.
+    """
+
+    reportes_perdida: ConteoPorEstado = ConteoPorEstado()
+    publicaciones_encontradas: ConteoPorEstado = ConteoPorEstado()
+    reclamos: ConteoPorEstado = ConteoPorEstado()
+
+
+class AdminCreate(BaseModel):
+    """Alta de un administrador por parte de un SUPERADMIN."""
+
+    nombre_completo: str
+    cedula: str
+    correo: EmailStr
+    tipo_vinculacion: TipoVinculacion = TipoVinculacion.ADMINISTRATIVO
+    celular: Optional[str] = None
+    sede_id: Optional[UUID] = None
+    password_temporal: str
+
+    @field_validator("correo")
+    @classmethod
+    def correo_institucional(cls, v: str) -> str:
+        if not v.lower().endswith("itm.edu.co"):
+            raise ValueError("El correo del administrador debe ser institucional (itm.edu.co)")
+        return v.lower()
+
+    @field_validator("password_temporal")
+    @classmethod
+    def password_valida(cls, v: str) -> str:
+        es_valida, mensaje = validate_password_strength(v)
+        if not es_valida:
+            raise ValueError(mensaje)
+        return v

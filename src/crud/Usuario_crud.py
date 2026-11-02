@@ -461,3 +461,73 @@ class UsuarioCRUD:
         self.db.refresh(usuario)
 
         return usuario
+
+
+    # ------------------------------------------------------------------
+    # Resumen de actividad (módulo "Usuarios" del sitio administrativo)
+    # ------------------------------------------------------------------
+    def contar_actividad(self, usuario_ids: List[UUID]) -> dict:
+        """Cuenta, por usuario, sus reportes de pérdida, publicaciones de objetos
+        encontrados y reclamos, desglosados por estado. Una consulta por tabla."""
+        from sqlalchemy import func
+
+        from src.entities.PublicacionEncontrado import PublicacionEncontrado
+        from src.entities.Reclamos import Reclamo
+        from src.entities.ReportePerdida import ReportePerdida
+
+        resultado = {
+            uid: {
+                "reportes_perdida": {"total": 0, "por_estado": {}},
+                "publicaciones_encontradas": {"total": 0, "por_estado": {}},
+                "reclamos": {"total": 0, "por_estado": {}},
+            }
+            for uid in usuario_ids
+        }
+        if not usuario_ids:
+            return resultado
+
+        for clave, modelo in (
+            ("reportes_perdida", ReportePerdida),
+            ("publicaciones_encontradas", PublicacionEncontrado),
+            ("reclamos", Reclamo),
+        ):
+            filas = (
+                self.db.query(modelo.usuario_id, modelo.estado, func.count())
+                .filter(modelo.usuario_id.in_(usuario_ids))
+                .group_by(modelo.usuario_id, modelo.estado)
+                .all()
+            )
+            for uid, estado, cantidad in filas:
+                bloque = resultado[uid][clave]
+                bloque["por_estado"][getattr(estado, "value", estado)] = cantidad
+                bloque["total"] += cantidad
+        return resultado
+
+    def crear_administrador(
+        self,
+        *,
+        nombre_completo: str,
+        cedula: str,
+        correo: str,
+        hashed_password: str,
+        tipo_vinculacion: str,
+        celular: Optional[str],
+        sede_id: Optional[UUID],
+        creado_por: UUID,
+    ) -> Usuario:
+        """Crea una cuenta ADMIN ya verificada (el alta la hace un SUPERADMIN)."""
+        usuario = self.crear_usuario(
+            nombre_completo=nombre_completo,
+            cedula=cedula,
+            correo=correo,
+            hashed_password=hashed_password,
+            rol="ADMIN",
+            tipo_vinculacion=tipo_vinculacion,
+        )
+        usuario.is_verified = True
+        usuario.celular = celular
+        usuario.sede_id = sede_id
+        usuario.usuario_edita_id = creado_por
+        self.db.commit()
+        self.db.refresh(usuario)
+        return usuario

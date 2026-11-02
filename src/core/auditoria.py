@@ -77,6 +77,14 @@ def _accion_y_detalle(nombre: str, cambios: dict) -> tuple[AccionAuditoria, str]
             if cambios["is_blocked"][1]:
                 return AccionAuditoria.BLOQUEAR, "Usuario bloqueado"
             return AccionAuditoria.DESBLOQUEAR, "Usuario desbloqueado"
+        if "is_active" in cambios:
+            if cambios["is_active"][1]:
+                return AccionAuditoria.CAMBIO_ESTADO, "Usuario reactivado"
+            return AccionAuditoria.CAMBIO_ESTADO, "Usuario desactivado"
+        if "sede_id" in cambios:
+            return AccionAuditoria.EDITAR, "Sede asignada"
+        if "rol" in cambios:
+            return AccionAuditoria.EDITAR, "Rol modificado"
         return AccionAuditoria.EDITAR, f"Campos: {campos}"
     if "estado" in cambios:
         antes, despues = (_valor(x) for x in cambios["estado"])
@@ -89,6 +97,17 @@ def _accion_y_detalle(nombre: str, cambios: dict) -> tuple[AccionAuditoria, str]
     if set(cambios) <= {"eliminacion_solicitada"}:
         return AccionAuditoria.CAMBIO_ESTADO, "Solicitud de eliminación"
     return AccionAuditoria.EDITAR, f"Campos: {campos}"
+
+
+def _referencia(session: Session, obj) -> str:
+    """Referencia SIN texto libre (categoría + dueño); se guarda al eliminar porque luego el registro ya no existe."""
+    try:
+        from src.utils.auditoria_resumen import referencia_entidad
+
+        with session.no_autoflush:
+            return referencia_entidad(session, obj, incluir_texto=False)
+    except Exception:  # la auditoría nunca debe romper la operación principal
+        return ""
 
 
 def _log(obj, accion: AccionAuditoria, detalle: str, actor: UUID) -> AuditLog:
@@ -135,7 +154,9 @@ def _auditar(session: Session, flush_context, instances) -> None:
     for obj in list(session.deleted):
         nombre = type(obj).__name__
         if nombre in AUDITADAS and nombre != "Usuario":
-            nuevos.append(_log(obj, AccionAuditoria.ELIMINAR, "Registro eliminado", actor))
+            ref = _referencia(session, obj)
+            detalle = f"Registro eliminado: {ref}" if ref else "Registro eliminado"
+            nuevos.append(_log(obj, AccionAuditoria.ELIMINAR, detalle, actor))
 
     for log in nuevos:
         session.add(log)
