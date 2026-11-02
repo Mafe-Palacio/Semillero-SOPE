@@ -80,7 +80,7 @@ class UsuarioResponse(UsuarioBase):
     usuario_id: UUID
     carnet: Optional[str] = None
     celular: Optional[str] = None
-    correo: EmailStr
+    correo: str
     rol: RolUsuario
     sede_id: Optional[UUID] = None
     is_verified: bool
@@ -89,6 +89,15 @@ class UsuarioResponse(UsuarioBase):
     motivo_bloqueo: Optional[str] = None
     fecha_creacion: datetime
     fecha_edicion: Optional[datetime] = None
+
+    @field_validator("correo", mode="before")
+    @classmethod
+    def normalizar_correo_malformado(cls, v: str) -> str:
+        if isinstance(v, str) and v.count("@") > 1:
+            partes = [p for p in v.split("@") if p]
+            if len(partes) >= 2:
+                return f"{partes[0]}@{partes[-1]}"
+        return v
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -27,6 +27,8 @@ class UsuarioCRUD:
         hashed_password: str,
         rol: str,
         tipo_vinculacion: str,
+        celular: Optional[str] = None,
+        carnet: Optional[str] = None,
     ) -> Usuario:
         """
         Registra un usuario nuevo.
@@ -49,6 +51,14 @@ class UsuarioCRUD:
                 f"Ya existe un usuario registrado con la cédula '{cedula}'"
             )
 
+        carnet_limpio = carnet.strip() if carnet and carnet.strip() else None
+        if carnet_limpio and self.obtener_usuario_por_carnet(carnet_limpio):
+            raise ValueError(
+                f"Ya existe un usuario registrado con el carnet '{carnet_limpio}'"
+            )
+
+        celular_limpio = celular.strip() if celular and celular.strip() else None
+
         usuario = Usuario(
             nombre_completo=nombre_completo,
             cedula=cedula,
@@ -56,6 +66,8 @@ class UsuarioCRUD:
             hashed_password=hashed_password,
             rol=rol,
             tipo_vinculacion=tipo_vinculacion,
+            celular=celular_limpio,
+            carnet=carnet_limpio,
             is_verified=False,
             is_active=True,
             is_blocked=False,
@@ -106,17 +118,41 @@ class UsuarioCRUD:
             .all()
         )
 
+    def _sanitizar_correos_duplicados(self, usuarios: List[Usuario]) -> List[Usuario]:
+        """Repara automáticamente en BD correos que quedaron con doble @ histórico."""
+        hubo_reparacion = False
+        for u in usuarios:
+            if u.correo and u.correo.count("@") > 1:
+                partes = [p for p in u.correo.split("@") if p]
+                if len(partes) >= 2:
+                    correo_reparado = f"{partes[0]}@{partes[-1]}"
+                    existe = (
+                        self.db.query(Usuario)
+                        .filter(Usuario.correo == correo_reparado, Usuario.usuario_id != u.usuario_id)
+                        .first()
+                    )
+                    if not existe:
+                        u.correo = correo_reparado
+                        hubo_reparacion = True
+        if hubo_reparacion:
+            try:
+                self.db.commit()
+            except Exception:
+                self.db.rollback()
+        return usuarios
+
     def obtener_usuarios(self, skip: int = 0, limit: int = 100) -> List[Usuario]:
         """
-        Obtiene los usuarios asociados a un número de celular específico.
+        Obtiene los usuarios registrados ordenados por nombre.
         """
-        return (
+        usuarios = (
             self.db.query(Usuario)
             .order_by(Usuario.nombre_completo)
             .offset(skip)
             .limit(limit)
             .all()
         )
+        return self._sanitizar_correos_duplicados(usuarios)
 
     def obtener_usuarios_por_nombre(
         self, nombre: str, skip: int = 0, limit: int = 100
@@ -305,9 +341,16 @@ class UsuarioCRUD:
             return None
 
         if celular is not None:
-            usuario.celular = celular
+            usuario.celular = celular.strip() if celular.strip() else None
         if carnet is not None:
-            usuario.carnet = carnet
+            carnet_limpio = carnet.strip() if carnet.strip() else None
+            if carnet_limpio:
+                existente = self.obtener_usuario_por_carnet(carnet_limpio)
+                if existente and existente.usuario_id != usuario_id:
+                    raise ValueError(
+                        f"El carnet '{carnet_limpio}' ya está registrado por otro usuario"
+                    )
+            usuario.carnet = carnet_limpio
 
         usuario.usuario_edita_id = usuario_id
 
@@ -337,6 +380,16 @@ class UsuarioCRUD:
         hubo_cambios = False
         for key, value in kwargs.items():
             if key in campos_permitidos and value is not None:
+                if key == "carnet":
+                    value = value.strip() if isinstance(value, str) and value.strip() else None
+                    if value:
+                        existente = self.obtener_usuario_por_carnet(value)
+                        if existente and existente.usuario_id != usuario_id:
+                            raise ValueError(
+                                f"El carnet '{value}' ya está registrado por otro usuario"
+                            )
+                elif key == "celular" and isinstance(value, str):
+                    value = value.strip() if value.strip() else None
                 setattr(usuario, key, value)
                 hubo_cambios = True
 
@@ -461,7 +514,6 @@ class UsuarioCRUD:
         self.db.refresh(usuario)
 
         return usuario
-
 
     # ------------------------------------------------------------------
     # Resumen de actividad (módulo "Usuarios" del sitio administrativo)

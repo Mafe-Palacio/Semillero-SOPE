@@ -7,10 +7,11 @@ import traceback
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.core.auth import create_access_token, get_current_user, CurrentUser
 from src.core.auth import (
     create_access_token,
     create_refresh_token,
+    get_current_user,
+    CurrentUser,
 )
 from src.core.config import get_settings
 from src.crud.Usuario_crud import UsuarioCRUD
@@ -65,6 +66,8 @@ async def login(
             rol=usuario.rol,
             settings=settings,
             type="access",
+            nombre_completo=usuario.nombre_completo,
+            sede_id=usuario.sede_id,
         )
 
         refresh_token = create_refresh_token(
@@ -150,6 +153,8 @@ async def refresh_access_token(
         rol=usuario.rol,
         settings=settings,
         type="access",
+        nombre_completo=usuario.nombre_completo,
+        sede_id=usuario.sede_id,
     )
 
     # 5. Devolver el token nuevo y conservar el Refresh Token

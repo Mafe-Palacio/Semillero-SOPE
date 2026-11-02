@@ -36,12 +36,19 @@ class CurrentUser(BaseModel):
 
 
 def create_access_token(
-    *, subject: UUID, correo: str, rol: str, settings: Settings, type: str = "access"
+    *,
+    subject: UUID,
+    correo: str,
+    rol: str,
+    settings: Settings,
+    type: str = "access",
+    nombre_completo: str | None = None,
+    sede_id: UUID | None = None,
 ) -> str:
     """Genera un JWT de acceso (HS256) con expiración configurada."""
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=settings.access_token_expire_minutes)
-    payload = {
+    payload: dict = {
         "sub": str(subject),
         "correo": correo,
         "rol": rol,
@@ -49,6 +56,10 @@ def create_access_token(
         "iat": int(now.timestamp()),
         "exp": expire,
     }
+    if nombre_completo is not None:
+        payload["nombre_completo"] = nombre_completo
+    if sede_id is not None:
+        payload["sede_id"] = str(sede_id)
     return jwt.encode(
         payload,
         settings.jwt_secret_key,

@@ -35,7 +35,17 @@ class RegistroRequest(BaseModel):
     tipo_vinculacion: TipoVinculacion
     prefijo_correo: str
     dominio_personalizado: Optional[str] = None  # obligatorio solo si OFICIOS_VARIOS
+    celular: Optional[str] = None
+    carnet: Optional[str] = None
     password: str
+
+    @field_validator("prefijo_correo")
+    @classmethod
+    def limpiar_prefijo_correo(cls, v: str) -> str:
+        limpio = (v or "").strip().split("@")[0].strip().lower()
+        if not limpio:
+            raise ValueError("El usuario del correo es obligatorio")
+        return limpio
 
     @field_validator("password")
     @classmethod

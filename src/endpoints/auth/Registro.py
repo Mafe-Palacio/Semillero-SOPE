@@ -81,7 +81,8 @@ async def registrar_usuario(
         dominio = _concatenar_dominio(
             data.tipo_vinculacion.value, data.dominio_personalizado
         )
-        correo = f"{data.prefijo_correo.strip()}@{dominio}"
+        prefijo_limpio = data.prefijo_correo.strip().split("@")[0].strip().lower()
+        correo = f"{prefijo_limpio}@{dominio}"
 
         usuario_crud = UsuarioCRUD(db)
         usuario = usuario_crud.crear_usuario(
@@ -91,6 +92,8 @@ async def registrar_usuario(
             hashed_password=hash_password(data.password),
             rol="USER",
             tipo_vinculacion=data.tipo_vinculacion.value,
+            celular=data.celular,
+            carnet=data.carnet,
         )
 
         codigo = generar_codigo_otp()
@@ -164,6 +167,8 @@ async def verificar_registro(
             rol=usuario.rol,
             settings=settings,
             type="access",
+            nombre_completo=usuario.nombre_completo,
+            sede_id=usuario.sede_id,
         )
         refresh_token = create_refresh_token(
             subject=usuario.usuario_id,
