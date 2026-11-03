@@ -114,7 +114,7 @@ class ObjetoEnCustodia(Base):
 
     def esta_disponible_para_reclamo(self) -> bool:
         """Verifica si el objeto está en custodia y libre de validaciones activas para ser reclamado."""
-        return self.estado == "EN_CUSTODIA" and not self.en_proceso_validacion
+        return self.estado in ("EN_CUSTODIA", "POR_VENCER") and not self.en_proceso_validacion
 
     def bloquear_para_validacion(self) -> None:
         """Bloquea temporalmente el objeto mientras un usuario responde su validación."""

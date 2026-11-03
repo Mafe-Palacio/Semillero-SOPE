@@ -5,7 +5,6 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session, joinedload
 from src.entities.ObjetoEnCustodia import ObjetoEnCustodia
 from src.entities.PuntoEntrega import PuntoEntrega
-from src.entities.PuntoEntrega import PuntoEntrega
 
 DIAS_POR_VENCER = 150  # ~5 meses
 DIAS_SIN_DUENO = 180  # ~6 meses
@@ -288,7 +287,7 @@ class ObjetoEnCustodiaCRUD:
             query = query.filter(ObjetoEnCustodia.categoria == categoria)
         if disponibles:
             query = query.filter(
-                ObjetoEnCustodia.estado == "EN_CUSTODIA",
+                ObjetoEnCustodia.estado.in_(ESTADOS_RECLAMABLES),
                 ObjetoEnCustodia.en_proceso_validacion.is_(False),
             )
         if en_proceso_validacion is not None:

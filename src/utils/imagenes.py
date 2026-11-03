@@ -3,7 +3,8 @@ Validación y carga de imágenes (HU28, CU06/CU07).
 
 Reglas: solo JPG/JPEG o PNG, máximo 5 MB, y el contenido real del archivo debe
 coincidir con el tipo declarado (firma "magic bytes"), no solo la extensión.
-La carga se hace a Cloudinary; la API solo guarda la URL resultante.
+La carga se hace a Cloudinary; si no está configurado en entorno local, se
+almacena de forma segura en el directorio local `uploads/` servido por `/imagenes/`.
 """
 
 from typing import Annotated, Optional
@@ -70,18 +71,28 @@ def subir_a_cloudinary(data: bytes, carpeta: str, settings: Settings) -> dict:
 
 
 def validar_url_imagen(valor: Optional[str]) -> Optional[str]:
-    """Las URL de imagen deben ser https y, si IMAGE_ALLOWED_HOSTS está definida,
-    pertenecer a uno de esos hosts (p. ej. res.cloudinary.com)."""
+    """Las URL de imagen deben ser https (o servidas por el propio backend en /imagenes/)
+    y, si IMAGE_ALLOWED_HOSTS está definida, pertenecer a uno de esos hosts."""
     if valor is None:
         return None
     from src.core.config import get_settings
 
     url = valor.strip()
+    if not url:
+        return None
     partes = urlparse(url)
+    host = (partes.hostname or "").lower()
+    es_local_imagenes = (
+        partes.scheme in ("http", "https")
+        and host in ("localhost", "127.0.0.1")
+        and partes.path.startswith("/imagenes/")
+    )
+    if es_local_imagenes:
+        return url
     if partes.scheme != "https" or not partes.netloc:
-        raise ValueError("La URL de la imagen debe ser https")
+        raise ValueError("La URL de la imagen debe ser https o provenir de POST /imagenes")
     permitidos = get_settings().image_allowed_hosts_list()
-    if permitidos and (partes.hostname or "").lower() not in permitidos:
+    if permitidos and host not in permitidos:
         raise ValueError("La imagen debe subirse mediante POST /imagenes")
     return url
 

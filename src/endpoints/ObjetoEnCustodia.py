@@ -256,7 +256,7 @@ async def obtener_objeto_custodia(
             if punto and punto.sede_id == current_user.sede_id:
                 return ObjetoEnCustodiaResponse.model_validate(objeto)
 
-        if objeto.estado == "EN_CUSTODIA" and not objeto.en_proceso_validacion:
+        if objeto.estado in ("EN_CUSTODIA", "POR_VENCER") and not objeto.en_proceso_validacion:
             return ObjetoEnCustodiaPublico.model_validate(objeto)
 
         raise HTTPException(

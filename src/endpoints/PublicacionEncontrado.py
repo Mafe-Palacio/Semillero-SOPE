@@ -269,7 +269,21 @@ async def moderar_publicacion_encontrada(
         _verificar_sede_admin(publicacion, current_admin, db)
 
         if data.estado == "APROBADA":
-            return crud.aprobar_publicacion_encontrada(publicacion_id)
+            from src.crud.ObjetoEnCustodia_crud import ObjetoEnCustodiaCRUD
+
+            aprobada = crud.aprobar_publicacion_encontrada(publicacion_id)
+            custodia_crud = ObjetoEnCustodiaCRUD(db)
+            if not custodia_crud.obtener_objeto_custodia_por_publicacion(publicacion_id):
+                custodia_crud.registrar_objeto_custodia(
+                    admin_id=current_admin.id_usuario,
+                    categoria=publicacion.categoria,
+                    descripcion=publicacion.descripcion,
+                    lugar_origen_id=publicacion.lugar_entrega_fisica_id,
+                    fecha_ingreso=date.today(),
+                    publicacionEncontrado_id=publicacion.publicacionEncontrado_id,
+                    imagen_url=publicacion.imagen_url,
+                )
+            return aprobada
 
         if data.estado == "RECHAZADA":
             if not data.motivo_rechazo:
