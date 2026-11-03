@@ -106,3 +106,15 @@ class ReportePerdidaPublico(BaseModel):
     estado: EstadoPublicacion
 
     model_config = ConfigDict(from_attributes=True)
+
+class ReportePerdidaPublico(BaseModel):
+    """Vista pública de un reporte de pérdida APROBADO: sin datos del dueño."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    reportePerdida_id: UUID
+    categoria: str
+    descripcion: str
+    lugar_perdida_nombre: Optional[str] = None
+    fecha_perdida: date
+    imagen_url: Optional[str] = None

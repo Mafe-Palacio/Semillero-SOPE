@@ -24,6 +24,7 @@ from src.entities.ReportePerdida import ReportePerdida
 from src.schemas.ReportePerdidaSchema import (
     ReportePerdidaCreate,
     ReportePerdidaModeracion,
+    ReportePerdidaPublico,
     ReportePerdidaResolverEliminacion,
     ReportePerdidaResponse,
     ReportePerdidaUpdate,
@@ -34,6 +35,46 @@ router = APIRouter(
     tags=["Reportes de Pérdida"],
     dependencies=[Depends(get_current_user)],
 )
+
+
+# Router público (sin token): se registra en main.py ANTES de `router` para que
+# "/publicos" no se confunda con "/{reporte_id}".
+public_router = APIRouter(
+    prefix="/reportes-perdida",
+    tags=["Catálogo público"],
+)
+
+
+@public_router.get("/publicos", response_model=List[ReportePerdidaPublico])
+async def listar_reportes_perdida_publicos(
+    categoria: Optional[str] = Query(None),
+    skip: int = 0,
+    limit: int = Query(100, le=200),
+    db: Session = Depends(get_db),
+):
+    """Reportes de pérdida ya APROBADOS por un admin, visibles sin sesión.
+    No expone al usuario que reportó ni su contacto."""
+    q = (
+        db.query(ReportePerdida)
+        .filter(
+            ReportePerdida.estado == "APROBADA",
+            ReportePerdida.eliminacion_solicitada.is_(False),
+        )
+        .order_by(ReportePerdida.fecha_publicacion.desc())
+    )
+    if categoria:
+        q = q.filter(ReportePerdida.categoria == categoria)
+    return [
+        ReportePerdidaPublico(
+            reportePerdida_id=r.reportePerdida_id,
+            categoria=str(getattr(r.categoria, "value", r.categoria)),
+            descripcion=r.descripcion,
+            lugar_perdida_nombre=r.lugar_perdida.nombre if r.lugar_perdida else None,
+            fecha_perdida=r.fecha_perdida,
+            imagen_url=r.imagen_url,
+        )
+        for r in q.offset(skip).limit(limit).all()
+    ]
 
 
 def _verificar_sede_admin(reporte: ReportePerdida, current_admin, db: Session) -> None:
