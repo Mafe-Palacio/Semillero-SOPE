@@ -18,10 +18,6 @@ router = APIRouter(
     dependencies=[Depends(get_current_admin)],
 )
 
-# SE HAN ELIMINADO INTENCIONALMENTE LOS MÉTODOS POST, PUT Y DELETE.
-# Los logs solo se leen a través de este endpoint,
-# la creación (POST) se llama internamente a nivel de código desde otros CRUDs.
-
 
 @router.get("", response_model=List[AuditLogDetalleResponse])
 async def obtener_historial_logs(
@@ -41,14 +37,13 @@ async def obtener_historial_logs(
         None, pattern="^(ADMIN|SUPERADMIN|USER)$", description="Rol de quien actuó"
     ),
     db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
 ):
     """Historial de auditoría paginado de 10 en 10 (HU10, CU21). El total viene en
     las cabeceras X-Total-Count, X-Total-Paginas, X-Pagina y X-Tamano-Pagina.
 
     Cada registro trae además quién lo hizo, el módulo y un `resumen` legible
-    (ej. "El administrador Ana aprobó el reporte de pérdida «Mochila» del usuario Juan").
-    Para ver lo que pasa "en tiempo real" el front consulta la página 1 cada pocos
-    segundos."""
+    (ej. "El administrador Ana aprobó el reporte de pérdida «Mochila» del usuario Juan")."""
     try:
         if modulo and modulo not in MODULOS:
             raise HTTPException(
@@ -64,6 +59,7 @@ async def obtener_historial_logs(
             entidades=MODULOS.get(modulo) if modulo else None,
             usuario_id=usuario_id,
             rol_actor=rol_actor,
+            sede_id=current_admin.sede_id,
         )
         response.headers["X-Total-Count"] = str(total)
         response.headers["X-Total-Paginas"] = str(
@@ -85,10 +81,13 @@ async def obtener_historial_por_entidad(
     entidad: str,
     entidad_id: UUID,
     db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
 ):
     try:
         crud = AuditLogCRUD(db)
-        return crud.obtener_logs_por_entidad(entidad, entidad_id)
+        return crud.obtener_logs_por_entidad(
+            entidad, entidad_id, sede_id=current_admin.sede_id
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

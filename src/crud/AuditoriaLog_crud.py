@@ -57,9 +57,10 @@ class AuditLogCRUD:
         entidades: Optional[List[str]] = None,
         usuario_id: Optional[UUID] = None,
         rol_actor: Optional[str] = None,
+        sede_id: Optional[UUID] = None,
     ) -> Tuple[List[AuditLog], int]:
         """Página de 10 registros (más recientes primero) con filtros opcionales
-        por tipo de entidad, acción y rango de fechas. Devuelve (registros, total)."""
+        por tipo de entidad, acción, sede y rango de fechas. Devuelve (registros, total)."""
         consulta = self.db.query(AuditLog)
         if entidad:
             consulta = consulta.filter(AuditLog.entidad == entidad)
@@ -67,10 +68,14 @@ class AuditLogCRUD:
             consulta = consulta.filter(AuditLog.entidad.in_(entidades))
         if usuario_id:
             consulta = consulta.filter(AuditLog.usuario_id == usuario_id)
-        if rol_actor:
+        if rol_actor or sede_id:
             consulta = consulta.join(
                 Usuario, Usuario.usuario_id == AuditLog.usuario_id
-            ).filter(Usuario.rol == rol_actor)
+            )
+            if rol_actor:
+                consulta = consulta.filter(Usuario.rol == rol_actor)
+            if sede_id:
+                consulta = consulta.filter(Usuario.sede_id == sede_id)
         if accion:
             consulta = consulta.filter(AuditLog.accion == accion)
         if fecha_desde:
@@ -92,12 +97,14 @@ class AuditLogCRUD:
         return registros, total
 
     def obtener_logs_por_entidad(
-        self, entidad: str, entidad_id: UUID
+        self, entidad: str, entidad_id: UUID, sede_id: Optional[UUID] = None
     ) -> List[AuditLog]:
         """Busca toda la historia (trazabilidad) de un registro en particular."""
-        return (
-            self.db.query(AuditLog)
-            .filter(AuditLog.entidad == entidad, AuditLog.entidad_id == entidad_id)
-            .order_by(AuditLog.fecha.asc())
-            .all()
+        consulta = self.db.query(AuditLog).filter(
+            AuditLog.entidad == entidad, AuditLog.entidad_id == entidad_id
         )
+        if sede_id:
+            consulta = consulta.join(
+                Usuario, Usuario.usuario_id == AuditLog.usuario_id
+            ).filter(Usuario.sede_id == sede_id)
+        return consulta.order_by(AuditLog.fecha.asc()).all()
