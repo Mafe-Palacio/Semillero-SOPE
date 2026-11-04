@@ -228,8 +228,7 @@ async def validar_respuestas_reclamo(
 ):
     """Compara automáticamente las respuestas enviadas por el reclamante
     contra `preguntas_seguridad.respuesta_correcta` y aprueba o rechaza el
-    reclamo según el resultado. Antes esta comparación no la hacía nadie:
-    el admin tenía que revisar manualmente ambos lados."""
+    reclamo según el resultado."""
     try:
         crud = ReclamoCRUD(db)
         objeto_crud = ObjetoEnCustodiaCRUD(db)
@@ -321,8 +320,6 @@ async def actualizar_reclamo(
         # del admin que hace el cambio)
         correo_reclamante = None
         if reclamo_data.estado:
-            from src.crud.Usuario_crud import UsuarioCRUD
-
             usuario_reclamante = UsuarioCRUD(db).obtener_usuario_por_id(
                 reclamo_actual.usuario_id
             )
@@ -348,6 +345,47 @@ async def actualizar_reclamo(
                         reclamo_data.estado.value,
                         reclamo_data.motivo_rechazo,
                     )
+
+            elif (
+                reclamo_data.estado == EstadoReclamo.LISTO_PARA_RECOGER
+                and correo_reclamante
+            ):
+                from src.crud.PuntoEntrega_crud import PuntoEntregaCRUD
+                from src.crud.Sede_crud import SedeCRUD
+
+                objeto = objeto_crud.obtener_objeto_custodia_por_id(
+                    reclamo_actual.objetoEnCustodia_id
+                )
+                punto = (
+                    PuntoEntregaCRUD(db).obtener_punto_entrega_por_id(
+                        objeto.lugar_origen_id
+                    )
+                    if objeto
+                    else None
+                )
+                sede = (
+                    SedeCRUD(db).obtener_sede_por_id(punto.sede_id)
+                    if punto
+                    else None
+                )
+                fecha_str = (
+                    reclamo_actualizado.fecha_cita.strftime("%Y-%m-%d")
+                    if reclamo_actualizado and reclamo_actualizado.fecha_cita
+                    else "Por confirmar"
+                )
+                hora_str = (
+                    reclamo_actualizado.horario_cita
+                    if reclamo_actualizado and reclamo_actualizado.horario_cita
+                    else ""
+                )
+                fecha_hora_cita = f"{fecha_str} {hora_str}".strip()
+                background_tasks.add_task(
+                    dispatcher.enviar_cita_presencial,
+                    correo_reclamante,
+                    fecha_hora_cita,
+                    sede.nombre if sede else "Campus ITM",
+                    punto.nombre if punto else "Oficina de Objetos Perdidos",
+                )
 
             elif correo_reclamante:
                 background_tasks.add_task(

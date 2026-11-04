@@ -94,20 +94,6 @@ class ReportePerdidaResponse(ReportePerdidaBase):
 
 
 class ReportePerdidaPublico(BaseModel):
-    """Vista filtrada para el catálogo general (HU01): oculta la
-    descripción libre (donde suelen escribirse marcas o detalles únicos
-    del objeto), igual que ObjetoEnCustodiaPublico oculta detalles_internos."""
-
-    reportePerdida_id: UUID
-    categoria: CategoriaObjeto
-    lugar_perdida_id: UUID
-    fecha_perdida: date
-    imagen_url: Optional[str] = None
-    estado: EstadoPublicacion
-
-    model_config = ConfigDict(from_attributes=True)
-
-class ReportePerdidaPublico(BaseModel):
     """Vista pública de un reporte de pérdida APROBADO: sin datos del dueño."""
 
     model_config = ConfigDict(from_attributes=True)

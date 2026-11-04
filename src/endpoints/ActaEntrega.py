@@ -9,6 +9,8 @@ from src.core.auth import get_current_admin_con_sede
 from src.crud.ActaEntrega_crud import ActaEntregaCRUD
 from src.crud.Reclamos_crud import ReclamoCRUD
 from src.crud.ObjetoEnCustodia_crud import ObjetoEnCustodiaCRUD
+from src.crud.PublicacionEncontrado_crud import PublicacionEncontradoCRUD
+from src.crud.Usuario_crud import UsuarioCRUD
 from src.database.config import get_db
 from src.entities.Enums import EstadoReclamo
 from src.schemas.ActaEntregaSchema import ActaEntregaCreate, ActaEntregaResponse
@@ -38,6 +40,15 @@ async def registrar_acta_entrega(
             acta_data.reclamo_id, current_admin.sede_id
         )
 
+        if reclamo.estado not in (
+            EstadoReclamo.APROBADO,
+            EstadoReclamo.LISTO_PARA_RECOGER,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo se puede generar un acta de entrega para reclamos aprobados o listos para recoger",
+            )
+
         crud = ActaEntregaCRUD(db)
         acta = crud.crear_acta(
             reclamo_id=acta_data.reclamo_id,
@@ -57,12 +68,35 @@ async def registrar_acta_entrega(
         reclamo_crud.actualizar_reclamo(reclamo.reclamo_id, estado=EstadoReclamo.RECLAMADO)
 
         dispatcher = NotificationDispatcher()
+        descripcion_obj = objeto.descripcion if objeto else "tu objeto"
         background_tasks.add_task(
             dispatcher.enviar_cierre_exitoso_reclamante,
             acta_data.correo_reclamante,
-            objeto.descripcion if objeto else "tu objeto",
+            descripcion_obj,
         )
+        background_tasks.add_task(
+            dispatcher.enviar_correo_acta_entrega,
+            acta_data.correo_reclamante,
+            acta_data.firma_url,
+        )
+
+        # Si el objeto provino de una publicación de hallazgo ciudadana, agradecer al encontrador (HU25)
+        if objeto and objeto.publicacionEncontrado_id:
+            pub = PublicacionEncontradoCRUD(db).obtener_publicacion_encontrada_por_id(
+                objeto.publicacionEncontrado_id
+            )
+            if pub:
+                encontrador = UsuarioCRUD(db).obtener_usuario_por_id(pub.usuario_id)
+                if encontrador and encontrador.correo:
+                    background_tasks.add_task(
+                        dispatcher.enviar_cierre_exitoso_encontrador,
+                        encontrador.correo,
+                        descripcion_obj,
+                    )
+
         return acta
+    except HTTPException:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:

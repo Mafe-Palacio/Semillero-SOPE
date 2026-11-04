@@ -25,11 +25,20 @@ router = APIRouter(
 )
 
 
-def _es_dueno_o_admin(reclamo, current_user) -> bool:
-    return reclamo.usuario_id == current_user.id_usuario or current_user.rol in (
-        "ADMIN",
-        "SUPERADMIN",
-    )
+def _es_dueno_o_admin(db: Session, reclamo, current_user) -> bool:
+    if reclamo.usuario_id == current_user.id_usuario:
+        return True
+    if current_user.rol not in ("ADMIN", "SUPERADMIN"):
+        return False
+    if current_user.sede_id is None:
+        return current_user.rol == "SUPERADMIN"
+    try:
+        ReclamoCRUD(db).obtener_reclamo_de_sede_o_404(
+            reclamo.reclamo_id, current_user.sede_id
+        )
+        return True
+    except ValueError:
+        return False
 
 
 @router.post(
@@ -98,14 +107,14 @@ async def obtener_respuestas_por_reclamo(
     current_user=Depends(get_current_user),
 ):
     """Obtiene todas las respuestas dadas para un reclamo específico.
-    Solo el dueño del reclamo o un admin pueden consultarlas."""
+    Solo el dueño del reclamo o un admin de la sede del objeto pueden consultarlas."""
     try:
         reclamo = ReclamoCRUD(db).obtener_reclamo_por_id(reclamo_id)
         if not reclamo:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Reclamo no encontrado"
             )
-        if not _es_dueno_o_admin(reclamo, current_user):
+        if not _es_dueno_o_admin(db, reclamo, current_user):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tienes permiso para ver estas respuestas",
@@ -129,7 +138,7 @@ async def obtener_respuesta(
     current_user=Depends(get_current_user),
 ):
     """Obtiene el detalle de una respuesta específica. Solo el dueño del
-    reclamo asociado o un admin pueden consultarla."""
+    reclamo asociado o un admin de la sede pueden consultarla."""
     try:
         crud = RespuestaSeguridadCRUD(db)
         respuesta = crud.obtener_respuesta_por_id(respuesta_id)
@@ -141,7 +150,7 @@ async def obtener_respuesta(
             )
 
         reclamo = ReclamoCRUD(db).obtener_reclamo_por_id(respuesta.reclamo_id)
-        if not reclamo or not _es_dueno_o_admin(reclamo, current_user):
+        if not reclamo or not _es_dueno_o_admin(db, reclamo, current_user):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tienes permiso para ver esta respuesta",
@@ -212,7 +221,7 @@ async def eliminar_respuesta(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Elimina una respuesta del sistema. Dueño del reclamo o admin."""
+    """Elimina una respuesta del sistema. Dueño del reclamo o admin de la sede."""
     try:
         crud = RespuestaSeguridadCRUD(db)
         respuesta = crud.obtener_respuesta_por_id(respuesta_id)
@@ -223,7 +232,7 @@ async def eliminar_respuesta(
             )
 
         reclamo = ReclamoCRUD(db).obtener_reclamo_por_id(respuesta.reclamo_id)
-        if not reclamo or not _es_dueno_o_admin(reclamo, current_user):
+        if not reclamo or not _es_dueno_o_admin(db, reclamo, current_user):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tienes permiso para eliminar esta respuesta",

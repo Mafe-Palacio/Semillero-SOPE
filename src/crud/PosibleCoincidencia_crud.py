@@ -53,9 +53,25 @@ class PosibleCoincidenciaCRUD:
         self, fecha_ingreso_objeto: date, fecha_perdida_reporte: date
     ) -> int:
         """Categoría y sede ya se validaron como requisito obligatorio antes
-        de llamar esto (ver generar_coincidencias_automaticas); aquí solo se
-        suma un bono por qué tan cerca están las fechas."""
-        dias_diferencia = abs((fecha_ingreso_objeto - fecha_perdida_reporte).days)
+        de llamar esto (ver generar_coincidencias_automaticas); aquí se valida
+        la ventana lógica de fechas y se asigna el puntaje por cercanía."""
+        f_ingreso = (
+            fecha_ingreso_objeto.date()
+            if hasattr(fecha_ingreso_objeto, "date")
+            else fecha_ingreso_objeto
+        )
+        f_perdida = (
+            fecha_perdida_reporte.date()
+            if hasattr(fecha_perdida_reporte, "date")
+            else fecha_perdida_reporte
+        )
+        diferencia_con_signo = (f_ingreso - f_perdida).days
+        # Si el objeto ingresó a custodia más de 7 días antes de la fecha reportada de pérdida,
+        # o más de 60 días después, se descarta por incongruencia temporal.
+        if diferencia_con_signo < -7 or diferencia_con_signo > 60:
+            return 0
+
+        dias_diferencia = abs(diferencia_con_signo)
 
         if dias_diferencia <= 7:
             return 100
@@ -71,20 +87,19 @@ class PosibleCoincidenciaCRUD:
         objetos_elegibles: List,
     ) -> List[PosibleCoincidencia]:
         """
-        Algoritmo simple de Smart Match (HU25): compara reportes de pérdida
+        Algoritmo de Smart Match (HU25): compara reportes de pérdida
         aprobados contra objetos en custodia disponibles.
 
-        Requisitos obligatorios para siquiera considerar un par:
+        Requisitos obligatorios para considerar un par:
           - misma categoría
           - misma sede (lugar_perdida -> sede_id  ==  lugar_origen -> sede_id)
+          - ventana lógica de fechas (-7 a +60 días)
 
-        Si ambos se cumplen, el score (50-100) se calcula según qué tan
-        cerca están la fecha de ingreso del objeto y la fecha de pérdida
-        reportada. Solo se registran (y notifican) los pares con score >=
-        SCORE_MINIMO_NOTIFICACION, y nunca se duplica un par ya existente.
+        Si se cumplen, el score (50-100) se calcula según qué tan cerca están
+        la fecha de ingreso del objeto y la fecha de pérdida reportada. Solo se
+        registran (y notifican) los pares con score >= SCORE_MINIMO_NOTIFICACION,
+        y nunca se duplica un par ya existente.
         """
-        # Precalcula sede_id de cada reporte (vía su Ubicacion) y de cada
-        # objeto (vía su PuntoEntrega) para no repetir consultas por par.
         ubicacion_ids = {r.lugar_perdida_id for r in reportes_elegibles}
         ubicaciones = (
             {
