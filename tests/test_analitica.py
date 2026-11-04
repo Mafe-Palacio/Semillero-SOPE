@@ -1,7 +1,13 @@
 """Listados de coincidencias y actas, métricas del dashboard y exportación CSV/Excel."""
 import csv
 import io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+
+
+def _hoy_utc() -> date:
+    """Las fechas del back se guardan en UTC (datetime.utcnow); usar la fecha local
+    haría fallar estos tests entre las 7 p. m. y medianoche en Colombia."""
+    return datetime.now(timezone.utc).date()
 from uuid import UUID
 
 import pytest
@@ -26,10 +32,10 @@ def escenario(client, db, make_user, auth, punto, objeto):
     """Un objeto ya entregado (con acta), otro sin reclamar y un reporte de pérdida."""
     admin = make_user(rol="ADMIN", sede_id=punto.sede_id)
     juan = make_user()
-    objeto.fecha_ingreso = date.today() - timedelta(days=10)
+    objeto.fecha_ingreso = _hoy_utc() - timedelta(days=10)
     db.add(ObjetoEnCustodia(admin_id=admin.usuario_id, categoria="ELECTRONICOS",
                             descripcion="=HYPERLINK(\"http://malo\")", lugar_origen_id=punto.puntoEntrega_id,
-                            fecha_ingreso=date.today()))
+                            fecha_ingreso=_hoy_utc()))
     ub = Ubicacion(sede_id=punto.sede_id, nombre="Bloque J", tipo="BLOQUE")
     db.add(ub)
     db.commit()
@@ -55,9 +61,9 @@ def test_listar_actas_con_total_y_filtros(client, auth, escenario):
     r = client.get("/actas-entrega", headers=h)
     assert r.status_code == 200 and r.headers["X-Total-Count"] == "1"
     assert r.json()[0]["actaEntrega_id"] == escenario["acta_id"]
-    hoy = date.today().isoformat()
+    hoy = _hoy_utc().isoformat()
     assert client.get(f"/actas-entrega?fecha_desde={hoy}&fecha_hasta={hoy}", headers=h).headers["X-Total-Count"] == "1"
-    ayer = (date.today() - timedelta(days=1)).isoformat()
+    ayer = (_hoy_utc() - timedelta(days=1)).isoformat()
     assert client.get(f"/actas-entrega?fecha_hasta={ayer}", headers=h).json() == []
     assert client.get("/actas-entrega?validacion_verbal=false", headers=h).json() == []
     assert client.get("/actas-entrega?limit=500", headers=h).status_code == 422
@@ -109,7 +115,7 @@ def test_metricas_del_dashboard(client, auth, escenario):
 
 def test_metricas_filtran_por_fecha_y_validan_rango(client, auth, escenario):
     h = auth(escenario["admin"])
-    hoy = date.today().isoformat()
+    hoy = _hoy_utc().isoformat()
     assert client.get(f"/metricas/resumen?fecha_desde={hoy}", headers=h).json()["total_objetos"] == 1
     assert client.get(f"/metricas/resumen?fecha_desde={hoy}&fecha_hasta=2020-01-01", headers=h).status_code == 400
 
