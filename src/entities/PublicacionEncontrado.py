@@ -85,6 +85,7 @@ class PublicacionEncontrado(Base):
     fecha_publicacion = Column(DateTime(timezone=True), server_default=func.now())
     motivo_rechazo = Column(String(500), nullable=True)
     eliminacion_solicitada = Column(Boolean, nullable=False, default=False)
+    motivo_eliminacion = Column(String(500), nullable=True)
 
     fecha_edicion = Column(DateTime(timezone=True), onupdate=func.now())
     usuario_edita_id = Column(
@@ -117,7 +118,8 @@ class PublicacionEncontrado(Base):
         """Verifica si la publicación está aprobada para ser consultada públicamente."""
         return self.estado == "APROBADA"
 
-    def solicitar_eliminacion(self) -> None:
+    def solicitar_eliminacion(self, motivo: str | None = None) -> None:
         """Marca la publicación para revisión de eliminación por parte de administración."""
         self.eliminacion_solicitada = True
+        self.motivo_eliminacion = motivo
         self.estado = "ELIMINACION_PENDIENTE"

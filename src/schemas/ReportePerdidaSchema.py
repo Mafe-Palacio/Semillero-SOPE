@@ -2,7 +2,7 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Optional
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, Field
 from src.utils.imagenes import UrlImagen
 
 
@@ -79,6 +79,12 @@ class ReportePerdidaResolverEliminacion(BaseModel):
     motivo: Optional[str] = None
 
 
+class ReportePerdidaSolicitudEliminacion(BaseModel):
+    """Cuerpo opcional de la solicitud de baja: el motivo que ve la administración."""
+
+    motivo: Optional[str] = Field(default=None, max_length=500)
+
+
 class ReportePerdidaResponse(ReportePerdidaBase):
     """Esquema de respuesta pública con los datos completos del reporte de pérdida."""
 
@@ -88,6 +94,7 @@ class ReportePerdidaResponse(ReportePerdidaBase):
     fecha_publicacion: datetime
     motivo_rechazo: Optional[str] = None
     eliminacion_solicitada: bool
+    motivo_eliminacion: Optional[str] = None
     fecha_edicion: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

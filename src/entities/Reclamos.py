@@ -70,3 +70,15 @@ class Reclamo(Base):
     # Relaciones
     objeto = relationship("ObjetoEnCustodia", back_populates="reclamos")
     usuario = relationship("Usuario")
+
+    @property
+    def objeto_categoria(self):
+        return self.objeto.categoria if self.objeto else None
+
+    @property
+    def objeto_descripcion(self):
+        return self.objeto.descripcion if self.objeto else None
+
+    @property
+    def objeto_imagen_url(self):
+        return self.objeto.imagen_url if self.objeto else None

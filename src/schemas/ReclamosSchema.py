@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
-from src.entities.Enums import EstadoReclamo
+from src.entities.Enums import CategoriaObjeto, EstadoReclamo
 from src.utils.imagenes import UrlImagen
 
 
@@ -44,5 +44,10 @@ class ReclamoResponse(ReclamoBase):
     motivo_rechazo: Optional[str] = None
     fecha_cita: Optional[datetime] = None
     horario_cita: Optional[str] = None
+    # Datos del objeto reclamado (sin detalles internos), para que el ciudadano
+    # reconozca su reclamo aunque el objeto ya no sea público.
+    objeto_categoria: Optional[CategoriaObjeto] = None
+    objeto_descripcion: Optional[str] = None
+    objeto_imagen_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -417,7 +417,7 @@ class PublicacionEncontradoCRUD:
         return publicacion
 
     def solicitar_eliminacion_publicacion_encontrada(
-        self, publicacionEncontrado_id: UUID
+        self, publicacionEncontrado_id: UUID, motivo: Optional[str] = None
     ) -> Optional[PublicacionEncontrado]:
         """
         Marca la bandera para solicitar la eliminación de la publicación.
@@ -428,7 +428,7 @@ class PublicacionEncontradoCRUD:
         if not publicacion:
             return None
 
-        publicacion.solicitar_eliminacion()
+        publicacion.solicitar_eliminacion(motivo)
 
         self.db.commit()
         self.db.refresh(publicacion)
@@ -457,6 +457,7 @@ class PublicacionEncontradoCRUD:
 
         publicacion.estado = "APROBADA"
         publicacion.eliminacion_solicitada = False
+        publicacion.motivo_eliminacion = None
         publicacion.motivo_rechazo = motivo
 
         self.db.commit()

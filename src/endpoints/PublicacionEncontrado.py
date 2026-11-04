@@ -27,6 +27,7 @@ from src.schemas.PublicacionEncontradoSchema import (
     PublicacionEncontradoPublico,
     PublicacionEncontradoResolverEliminacion,
     PublicacionEncontradoResponse,
+    PublicacionEncontradoSolicitudEliminacion,
     PublicacionEncontradoUpdate,
 )
 
@@ -319,10 +320,12 @@ async def moderar_publicacion_encontrada(
 )
 async def solicitar_eliminacion_publicacion(
     publicacion_id: UUID,
+    datos: Optional[PublicacionEncontradoSolicitudEliminacion] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Solo el dueño de la publicación puede solicitar su eliminación."""
+    """Solo el dueño de la publicación puede solicitar su eliminación. El cuerpo
+    con `motivo` es opcional (compatibilidad con clientes anteriores)."""
     crud = PublicacionEncontradoCRUD(db)
     publicacion = crud.obtener_publicacion_encontrada_por_id(publicacion_id)
 
@@ -338,7 +341,8 @@ async def solicitar_eliminacion_publicacion(
             detail="Solo el autor de la publicación puede solicitar su eliminación",
         )
 
-    return crud.solicitar_eliminacion_publicacion_encontrada(publicacion_id)
+    motivo = (datos.motivo or "").strip() or None if datos else None
+    return crud.solicitar_eliminacion_publicacion_encontrada(publicacion_id, motivo)
 
 
 @router.put(

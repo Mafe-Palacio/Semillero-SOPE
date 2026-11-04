@@ -332,7 +332,7 @@ class ReportePerdidaCRUD:
         return reporte
 
     def solicitar_eliminacion_reporte_perdida(
-        self, reporte_perdida_id: UUID
+        self, reporte_perdida_id: UUID, motivo: Optional[str] = None
     ) -> Optional[ReportePerdida]:
         """
         Marca la solicitud de eliminación a petición del usuario.
@@ -341,7 +341,7 @@ class ReportePerdidaCRUD:
         if not reporte:
             return None
 
-        reporte.solicitar_eliminacion()
+        reporte.solicitar_eliminacion(motivo)
 
         self.db.commit()
         self.db.refresh(reporte)
@@ -365,6 +365,7 @@ class ReportePerdidaCRUD:
 
         reporte.estado = "APROBADA"
         reporte.eliminacion_solicitada = False
+        reporte.motivo_eliminacion = None
         reporte.motivo_rechazo = motivo
 
         self.db.commit()

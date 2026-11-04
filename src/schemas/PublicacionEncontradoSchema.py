@@ -2,7 +2,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from src.utils.imagenes import UrlImagen
 
 
@@ -71,6 +71,12 @@ class PublicacionEncontradoResolverEliminacion(BaseModel):
     motivo: Optional[str] = None
 
 
+class PublicacionEncontradoSolicitudEliminacion(BaseModel):
+    """Cuerpo opcional de la solicitud de baja: el motivo que ve la administración."""
+
+    motivo: Optional[str] = Field(default=None, max_length=500)
+
+
 class PublicacionEncontradoResponse(PublicacionEncontradoBase):
     """Esquema de respuesta pública con los datos completos de la publicación de hallazgo."""
 
@@ -80,6 +86,7 @@ class PublicacionEncontradoResponse(PublicacionEncontradoBase):
     fecha_publicacion: datetime
     motivo_rechazo: Optional[str] = None
     eliminacion_solicitada: bool
+    motivo_eliminacion: Optional[str] = None
     fecha_edicion: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

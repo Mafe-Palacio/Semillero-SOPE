@@ -27,6 +27,7 @@ from src.schemas.ReportePerdidaSchema import (
     ReportePerdidaPublico,
     ReportePerdidaResolverEliminacion,
     ReportePerdidaResponse,
+    ReportePerdidaSolicitudEliminacion,
     ReportePerdidaUpdate,
 )
 
@@ -302,10 +303,12 @@ async def moderar_reporte_perdida(
 )
 async def solicitar_eliminacion_reporte(
     reporte_id: UUID,
+    datos: Optional[ReportePerdidaSolicitudEliminacion] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Solo el dueño del reporte puede solicitar su eliminación."""
+    """Solo el dueño del reporte puede solicitar su eliminación. El cuerpo con
+    `motivo` es opcional (compatibilidad con clientes anteriores)."""
     crud = ReportePerdidaCRUD(db)
     reporte = crud.obtener_reporte_perdida_por_id(reporte_id)
 
@@ -321,7 +324,8 @@ async def solicitar_eliminacion_reporte(
             detail="Solo el autor del reporte puede solicitar su eliminación",
         )
 
-    return crud.solicitar_eliminacion_reporte_perdida(reporte_id)
+    motivo = (datos.motivo or "").strip() or None if datos else None
+    return crud.solicitar_eliminacion_reporte_perdida(reporte_id, motivo)
 
 
 @router.put(
