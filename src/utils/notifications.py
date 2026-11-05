@@ -136,6 +136,7 @@ class NotificationDispatcher:
         )
 
     def enviar_recuperacion_password(self, correo: str, codigo: str) -> bool:
+        print(f"[SMTP] Preparando envío de OTP {codigo} hacia {correo}...")
         cuerpo = f"""
         <p>Recibimos una solicitud para restablecer tu contraseña.</p>
         <p>Tu código de recuperación es:</p>

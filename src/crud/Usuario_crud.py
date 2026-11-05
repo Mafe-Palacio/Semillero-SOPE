@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 from typing import List, Optional
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from src.entities.Usuario import Usuario
 
@@ -87,9 +88,11 @@ class UsuarioCRUD:
 
     def obtener_usuario_por_correo(self, correo: str) -> Optional[Usuario]:
         """
-        Obtiene un usuario por su correo electrónico institucional.
+        Obtiene un usuario por su correo electrónico institucional (insensible a mayúsculas y espacios).
         """
-        return self.db.query(Usuario).filter(Usuario.correo == correo).first()
+        if not correo:
+            return None
+        return self.db.query(Usuario).filter(func.lower(Usuario.correo) == correo.strip().lower()).first()
 
     def obtener_usuario_por_cedula(self, cedula: str) -> Optional[Usuario]:
         """
