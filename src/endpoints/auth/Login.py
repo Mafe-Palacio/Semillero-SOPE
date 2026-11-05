@@ -12,15 +12,24 @@ from src.core.auth import (
     create_refresh_token,
     get_current_user,
     CurrentUser,
+    bearer_scheme,
+    hash_token,
+    token_revocado,
 )
 from src.core.config import get_settings
 from src.crud.Usuario_crud import UsuarioCRUD
 from src.database.config import get_db
-from src.schemas.AuthSchema import LoginRequest, TokenResponse, RefreshRequest
+from src.schemas.AuthSchema import LoginRequest, LogoutRequest, TokenResponse, RefreshRequest
 from src.utils.security import verify_password
+from datetime import datetime, timezone
+from typing import Annotated, Optional
 from uuid import UUID
 from jose import JWTError, jwt
+from src.entities.TokenRevocado import TokenRevocado
 from src.entities.Usuario import Usuario
+from fastapi.security import HTTPAuthorizationCredentials
+
+from src.schemas.schemas import RespuestaAPI
 
 router = APIRouter()
 
@@ -118,6 +127,12 @@ async def refresh_access_token(
             detail="Refresh Token inválido o expirado",
         ) from None
 
+    if token_revocado(db, data.refresh_token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesión cerrada, inicia sesión de nuevo",
+        )
+
     # 2. Consultar al usuario en la base de datos
     usuario = db.query(Usuario).filter(Usuario.usuario_id == user_id).first()
 
@@ -162,3 +177,53 @@ async def refresh_access_token(
         access_token=nuevo_access_token,
         refresh_token=data.refresh_token,
     )
+
+
+@router.post("/logout", response_model=RespuestaAPI)
+async def logout(
+    data: Optional[LogoutRequest] = None,
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(bearer_scheme)
+    ] = None,
+    db: Session = Depends(get_db),
+):
+    """Cierra la sesión (HU35): invalida el access token de la cabecera y el refresh
+    token del cuerpo. Es idempotente y no exige que el access token siga vigente
+    (el cliente puede cerrar sesión justo cuando este expiró); basta con poseer
+    un token con firma válida para revocarlo."""
+    settings = get_settings()
+    ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+    candidatos = []
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        candidatos.append(("access", credentials.credentials))
+    if data is not None and data.refresh_token:
+        candidatos.append(("refresh", data.refresh_token))
+
+    # Limpieza oportunista: un token expirado ya no sirve, no hace falta recordarlo.
+    db.query(TokenRevocado).filter(TokenRevocado.expira_en < ahora).delete()
+
+    for tipo, token in candidatos:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.jwt_secret_key,
+                algorithms=[settings.jwt_algorithm],
+                options={"verify_exp": False},
+            )
+            usuario_id = UUID(payload["sub"])
+            expira = datetime.fromtimestamp(payload["exp"], tz=timezone.utc).replace(
+                tzinfo=None
+            )
+        except (JWTError, KeyError, ValueError, TypeError):
+            continue  # token ajeno o malformado: no hay nada que revocar
+        if not token_revocado(db, token):
+            db.add(
+                TokenRevocado(
+                    token_hash=hash_token(token),
+                    usuario_id=usuario_id,
+                    tipo=tipo,
+                    expira_en=expira,
+                )
+            )
+    db.commit()
+    return RespuestaAPI(mensaje="Sesión cerrada correctamente", exito=True)

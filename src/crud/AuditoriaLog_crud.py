@@ -98,9 +98,8 @@ class AuditLogCRUD:
             .all()
         )
 
-    def obtener_logs_paginados(
+    def _filtrar(
         self,
-        pagina: int = 1,
         entidad: Optional[str] = None,
         accion: Optional[AccionAuditoria] = None,
         fecha_desde: Optional[date] = None,
@@ -109,9 +108,8 @@ class AuditLogCRUD:
         usuario_id: Optional[UUID] = None,
         rol_actor: Optional[str] = None,
         sede_id: Optional[UUID] = None,
-    ) -> Tuple[List[AuditLog], int]:
-        """Página de 10 registros (más recientes primero) con filtros opcionales
-        por tipo de entidad, acción, sede y rango de fechas. Devuelve (registros, total)."""
+    ):
+        """Consulta base con los filtros de la bitácora (los usa la lista y la exportación)."""
         consulta = self.db.query(AuditLog)
         if entidad:
             consulta = consulta.filter(AuditLog.entidad == entidad)
@@ -136,6 +134,29 @@ class AuditLogCRUD:
                 AuditLog.fecha
                 < datetime.combine(fecha_hasta + timedelta(days=1), datetime.min.time())
             )
+        return consulta
+
+    def obtener_logs_para_exportar(self, limite: int = 10000, **filtros) -> List[AuditLog]:
+        """Registros que coinciden con los filtros, sin paginar (tope `limite`), recientes primero."""
+        return self._filtrar(**filtros).order_by(AuditLog.fecha.desc()).limit(limite).all()
+
+    def obtener_logs_paginados(
+        self,
+        pagina: int = 1,
+        entidad: Optional[str] = None,
+        accion: Optional[AccionAuditoria] = None,
+        fecha_desde: Optional[date] = None,
+        fecha_hasta: Optional[date] = None,
+        entidades: Optional[List[str]] = None,
+        usuario_id: Optional[UUID] = None,
+        rol_actor: Optional[str] = None,
+        sede_id: Optional[UUID] = None,
+    ) -> Tuple[List[AuditLog], int]:
+        """Página de 10 registros (más recientes primero) con filtros opcionales
+        por tipo de entidad, acción, sede y rango de fechas. Devuelve (registros, total)."""
+        consulta = self._filtrar(
+            entidad, accion, fecha_desde, fecha_hasta, entidades, usuario_id, rol_actor, sede_id
+        )
         total = consulta.count()
         registros = (
             consulta.order_by(AuditLog.fecha.desc())

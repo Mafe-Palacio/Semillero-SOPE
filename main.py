@@ -72,6 +72,7 @@ import src.entities.RespuestaSeguridad  # noqa: F401
 import src.entities.PosibleCoincidencia  # noqa: F401
 import src.entities.ActaEntrega  # noqa: F401
 import src.entities.AuditoriaLog  # noqa: F401
+import src.entities.TokenRevocado  # noqa: F401
 
 
 @asynccontextmanager

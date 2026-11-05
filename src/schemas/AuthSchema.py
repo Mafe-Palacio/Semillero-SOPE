@@ -98,6 +98,12 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class LogoutRequest(BaseModel):
+    """Cuerpo opcional de POST /auth/logout: el refresh token a invalidar."""
+
+    refresh_token: Optional[str] = None
+
+
 class RecuperarPasswordRequest(BaseModel):
     """Solicita el envío de un código de recuperación al correo institucional."""
 

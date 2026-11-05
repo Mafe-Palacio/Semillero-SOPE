@@ -2,8 +2,8 @@
 Autenticación JWT: dependencia reutilizable para rutas protegidas.
 """
 
+import hashlib
 from datetime import datetime, timedelta, timezone
-from os import access
 from typing import Annotated
 from uuid import UUID
 
@@ -18,6 +18,7 @@ from src.core.auditoria import set_actor
 from src.database.config import get_db
 
 from src.entities.Sede import Sede
+from src.entities.TokenRevocado import TokenRevocado
 from src.entities.Usuario import Usuario
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -92,6 +93,21 @@ def create_refresh_token(
     )
 
 
+def hash_token(token: str) -> str:
+    """SHA-256 del JWT: así se identifica un token revocado sin guardarlo."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def token_revocado(db: Session, token: str) -> bool:
+    """True si el token fue invalidado con POST /auth/logout (HU35)."""
+    return (
+        db.query(TokenRevocado.token_hash)
+        .filter(TokenRevocado.token_hash == hash_token(token))
+        .first()
+        is not None
+    )
+
+
 def _decode_token(token: str, settings: Settings) -> dict:
     return jwt.decode(
         token,
@@ -124,6 +140,9 @@ async def get_current_user(
             status_code=401,
             detail="Token inválido o expirado",
         ) from None
+
+    if token_revocado(db, token):
+        raise HTTPException(status_code=401, detail="Sesión cerrada, inicia sesión de nuevo")
 
     user = db.query(Usuario).filter(Usuario.usuario_id == user_id).first()
     if not user:

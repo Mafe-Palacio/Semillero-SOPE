@@ -25,6 +25,7 @@ guardó en base de datos aunque el correo falle).
 
 import logging
 import re
+from html import escape as _e
 import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
@@ -127,7 +128,7 @@ class NotificationDispatcher:
         cuerpo = f"""
         <p>¡Bienvenido/a al Sistema de Objetos Perdidos y Encontrados del ITM!</p>
         <p>Tu código de verificación es:</p>
-        <h2>{codigo}</h2>
+        <h2>{_e(str(codigo))}</h2>
         <p>Este código vence en 15 minutos. Si no solicitaste este registro, ignora este mensaje.</p>
         """
         return self._enviar_correo(
@@ -138,7 +139,7 @@ class NotificationDispatcher:
         cuerpo = f"""
         <p>Recibimos una solicitud para restablecer tu contraseña.</p>
         <p>Tu código de recuperación es:</p>
-        <h2>{codigo}</h2>
+        <h2>{_e(str(codigo))}</h2>
         <p>Este código vence en 15 minutos. Si no solicitaste esto, ignora este mensaje.</p>
         """
         return self._enviar_correo(
@@ -152,7 +153,7 @@ class NotificationDispatcher:
     def enviar_alerta_match(self, correo: str, descripcion_objeto: str) -> bool:
         cuerpo = f"""
         <p>Encontramos un objeto en custodia que podría coincidir con algo que reportaste como perdido:</p>
-        <p><strong>{descripcion_objeto}</strong></p>
+        <p><strong>{_e(str(descripcion_objeto))}</strong></p>
         <p>Ingresa a la plataforma para responder las preguntas de seguridad y confirmar si es tuyo.</p>
         """
         return self._enviar_correo(
@@ -167,9 +168,9 @@ class NotificationDispatcher:
         cuerpo = f"""
         <p>Tu reclamo fue aprobado. Puedes acercarte a recoger tu objeto:</p>
         <ul>
-            <li><strong>Fecha y hora:</strong> {fecha_hora}</li>
-            <li><strong>Sede:</strong> {sede_nombre}</li>
-            <li><strong>Lugar:</strong> {punto_entrega_nombre}</li>
+            <li><strong>Fecha y hora:</strong> {_e(str(fecha_hora))}</li>
+            <li><strong>Sede:</strong> {_e(str(sede_nombre))}</li>
+            <li><strong>Lugar:</strong> {_e(str(punto_entrega_nombre))}</li>
         </ul>
         <p>Recuerda llevar tu documento de identidad y el carné institucional.</p>
         """
@@ -178,10 +179,12 @@ class NotificationDispatcher:
         )
 
     def enviar_correo_acta_entrega(self, correo: str, firma_url: str) -> bool:
+        # Solo se enlaza si es http(s): evita enlaces `javascript:` en el correo.
+        url_segura = firma_url if firma_url.lower().startswith(("http://", "https://")) else "#"
         cuerpo = f"""
         <p>Se registró el acta de entrega de tu objeto.</p>
         <p>Puedes consultar la firma/soporte aquí:</p>
-        <p><a href="{firma_url}">{firma_url}</a></p>
+        <p><a href="{_e(url_segura)}">{_e(firma_url)}</a></p>
         <p>Gracias por usar el Sistema de Objetos Perdidos y Encontrados del ITM.</p>
         """
         return self._enviar_correo(
@@ -193,7 +196,7 @@ class NotificationDispatcher:
     ) -> bool:
         """HU09: avisa a la administradora de una sede que uno o varios
         objetos llevan ~5 meses en custodia y están a punto de vencer."""
-        items = "".join(f"<li>{d}</li>" for d in descripciones_objetos)
+        items = "".join(f"<li>{_e(str(d))}</li>" for d in descripciones_objetos)
         cuerpo = f"""
         <p>Los siguientes objetos en custodia de tu sede llevan cerca de 5 meses
         sin ser reclamados y fueron marcados como <strong>POR_VENCER</strong>:</p>
@@ -209,7 +212,7 @@ class NotificationDispatcher:
         self, correo: str, descripcion_objeto: str
     ) -> bool:
         cuerpo = f"""
-        <p>¡Felicitaciones! Tu objeto <strong>{descripcion_objeto}</strong> fue recuperado exitosamente.</p>
+        <p>¡Felicitaciones! Tu objeto <strong>{_e(str(descripcion_objeto))}</strong> fue recuperado exitosamente.</p>
         <p>Esperamos haberte sido de ayuda.</p>
         """
         return self._enviar_correo(
@@ -220,7 +223,7 @@ class NotificationDispatcher:
         self, correo: str, descripcion_objeto: str
     ) -> bool:
         cuerpo = f"""
-        <p>El objeto que reportaste como encontrado (<strong>{descripcion_objeto}</strong>)
+        <p>El objeto que reportaste como encontrado (<strong>{_e(str(descripcion_objeto))}</strong>)
         fue devuelto exitosamente a su dueño. ¡Gracias por tu aporte a la comunidad ITM!</p>
         """
         return self._enviar_correo(
@@ -230,9 +233,9 @@ class NotificationDispatcher:
     def enviar_cambio_estado_reclamo(
         self, correo: str, nuevo_estado: str, motivo: str | None = None
     ) -> bool:
-        detalle = f"<p>Motivo: {motivo}</p>" if motivo else ""
+        detalle = f"<p>Motivo: {_e(str(motivo))}</p>" if motivo else ""
         cuerpo = f"""
-        <p>El estado de tu reclamo cambió a: <strong>{nuevo_estado}</strong>.</p>
+        <p>El estado de tu reclamo cambió a: <strong>{_e(str(nuevo_estado))}</strong>.</p>
         {detalle}
         <p>Consulta el detalle completo en la sección "Mis reclamos" de la plataforma.</p>
         """
@@ -247,7 +250,7 @@ class NotificationDispatcher:
     def enviar_notificacion_bloqueo(self, correo: str, motivo: str) -> bool:
         cuerpo = f"""
         <p>Tu cuenta en el Sistema de Objetos Perdidos y Encontrados del ITM fue bloqueada.</p>
-        <p><strong>Motivo:</strong> {motivo}</p>
+        <p><strong>Motivo:</strong> {_e(str(motivo))}</p>
         <p>Si consideras que esto es un error, contacta a la oficina de objetos perdidos.</p>
         """
         return self._enviar_correo(
