@@ -44,7 +44,6 @@ async def recuperar_password(
     try:
         usuario_crud = UsuarioCRUD(db)
         usuario = usuario_crud.obtener_usuario_por_correo(data.correo)
-        print(f"[AUTH] Solicitud de recuperación para: '{data.correo}' | Encontrado en BD: {usuario is not None}")
 
         if usuario:
             codigo = generar_codigo_otp()
@@ -87,7 +86,6 @@ async def resetear_password(
     try:
         usuario_crud = UsuarioCRUD(db)
         usuario = usuario_crud.obtener_usuario_por_correo(data.correo)
-        print(f"[AUTH] Solicitud de recuperación para: '{data.correo}' | Encontrado en BD: {usuario is not None}")
 
         if not usuario:
             raise HTTPException(
