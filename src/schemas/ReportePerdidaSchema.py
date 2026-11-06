@@ -41,6 +41,8 @@ class ReportePerdidaBase(BaseModel):
     fecha_perdida: date
     hora_aproximada: Optional[time] = None
     imagen_url: Optional[str] = None
+    detalle_lugar: Optional[str] = Field(default=None, max_length=200)
+    observaciones: Optional[str] = Field(default=None, max_length=500)
 
     @field_validator("fecha_perdida")
     @classmethod

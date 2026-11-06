@@ -63,6 +63,9 @@ class ReportePerdida(Base):
     fecha_perdida = Column(Date, nullable=False)
     hora_aproximada = Column(Time, nullable=True)
     imagen_url = Column(String(500), nullable=True)
+    # Detalle del lugar (ej. "Bloque L, salón L503") y notas libres del reportante
+    detalle_lugar = Column(String(200), nullable=True)
+    observaciones = Column(String(500), nullable=True)
     estado = Column(
         Enum(
             "PENDIENTE",

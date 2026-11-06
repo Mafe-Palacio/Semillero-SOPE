@@ -60,6 +60,17 @@ def _verificar_sede_admin(
         )
 
 
+def _notas_internas(publicacion) -> Optional[str]:
+    """Une el detalle del lugar y las observaciones del reportante para que el
+    administrador las vea en custodia (solo admin; no se publican en el catálogo)."""
+    partes = []
+    if publicacion.detalle_lugar:
+        partes.append(f"Lugar exacto: {publicacion.detalle_lugar}")
+    if publicacion.observaciones:
+        partes.append(f"Observaciones: {publicacion.observaciones}")
+    return " | ".join(partes)[:500] or None
+
+
 @router.post(
     "/",
     response_model=PublicacionEncontradoResponse,
@@ -80,6 +91,8 @@ async def crear_publicacion_encontrada(
             lugar_entrega_fisica_id=data.lugar_entrega_fisica_id,
             fecha_hallazgo=data.fecha_hallazgo,
             imagen_url=data.imagen_url,
+            detalle_lugar=data.detalle_lugar,
+            observaciones=data.observaciones,
         )
 
     except ValueError as e:
@@ -283,6 +296,7 @@ async def moderar_publicacion_encontrada(
                     fecha_ingreso=date.today(),
                     publicacionEncontrado_id=publicacion.publicacionEncontrado_id,
                     imagen_url=publicacion.imagen_url,
+                    detalles_internos=_notas_internas(publicacion),
                 )
             return aprobada
 

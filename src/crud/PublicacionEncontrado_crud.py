@@ -30,6 +30,8 @@ class PublicacionEncontradoCRUD:
         lugar_entrega_fisica_id: UUID,
         fecha_hallazgo: date,
         imagen_url: Optional[str] = None,
+        detalle_lugar: Optional[str] = None,
+        observaciones: Optional[str] = None,
     ) -> PublicacionEncontrado:
         """
         Crea una nueva publicación de objeto encontrado en estado PENDIENTE.
@@ -55,6 +57,8 @@ class PublicacionEncontradoCRUD:
             lugar_entrega_fisica_id=lugar_entrega_fisica_id,
             fecha_hallazgo=fecha_hallazgo,
             imagen_url=imagen_url,
+            detalle_lugar=(detalle_lugar or "").strip() or None,
+            observaciones=(observaciones or "").strip() or None,
             estado="PENDIENTE",
         )
 

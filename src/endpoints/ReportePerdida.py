@@ -107,6 +107,8 @@ async def crear_reporte_perdida(
             fecha_perdida=data.fecha_perdida,
             hora_aproximada=data.hora_aproximada,
             imagen_url=data.imagen_url,
+            detalle_lugar=data.detalle_lugar,
+            observaciones=data.observaciones,
         )
 
     except ValueError as e:

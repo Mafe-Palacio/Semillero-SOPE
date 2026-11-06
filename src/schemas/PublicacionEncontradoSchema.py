@@ -41,6 +41,8 @@ class PublicacionEncontradoBase(BaseModel):
     lugar_entrega_fisica_id: UUID
     fecha_hallazgo: date
     imagen_url: Optional[str] = None
+    detalle_lugar: Optional[str] = Field(default=None, max_length=200)
+    observaciones: Optional[str] = Field(default=None, max_length=500)
 
 
 class PublicacionEncontradoCreate(PublicacionEncontradoBase):

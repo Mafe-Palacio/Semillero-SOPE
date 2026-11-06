@@ -29,6 +29,8 @@ class ReportePerdidaCRUD:
         fecha_perdida: date,
         hora_aproximada=None,
         imagen_url: Optional[str] = None,
+        detalle_lugar: Optional[str] = None,
+        observaciones: Optional[str] = None,
     ) -> ReportePerdida:
         """
         Registra un nuevo reporte de objeto perdido (estado inicial PENDIENTE).
@@ -54,6 +56,8 @@ class ReportePerdidaCRUD:
             fecha_perdida=fecha_perdida,
             hora_aproximada=hora_aproximada,
             imagen_url=imagen_url,
+            detalle_lugar=(detalle_lugar or "").strip() or None,
+            observaciones=(observaciones or "").strip() or None,
             estado="PENDIENTE",
         )
 
