@@ -149,6 +149,8 @@ def enriquecer_logs(db: Session, logs: Iterable) -> list[dict]:
         resumen = f"{prefijo} {nombre_actor} {verbo} {articulo}"
         if ref:
             resumen += f" {ref}"
+        # Concordancia: «de el» → «del», «a el» → «al» (los artículos vienen de ENTIDADES).
+        resumen = resumen.replace(" de el ", " del ").replace(" a el ", " al ")
         accion_v = getattr(l.accion, "value", l.accion)
         if accion_v in ("CAMBIO_ESTADO", "EDITAR", "APROBAR", "RECHAZAR") and l.detalle:
             resumen += f" ({l.detalle})"

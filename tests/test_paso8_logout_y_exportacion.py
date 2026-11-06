@@ -68,3 +68,20 @@ def test_correos_escapan_html_de_usuarios(monkeypatch):
     todo = "".join(enviados)
     assert "<script>" not in todo and "<img" not in todo and 'href="javascript' not in todo
     assert "&lt;script&gt;" in todo
+
+
+def test_bitacora_usa_del_en_vez_de_de_el(client, auth, make_user, sede):
+    from datetime import date
+    from src.entities.Ubicacion import Ubicacion
+    from src.database.config import get_db  # noqa: F401
+    admin = make_user(rol="ADMIN", sede_id=sede.sede_id)
+    user = make_user()
+    db = next(client.app.dependency_overrides[get_db]())
+    ub = Ubicacion(sede_id=sede.sede_id, nombre="Bloque J", tipo="BLOQUE"); db.add(ub); db.commit()
+    rid = client.post("/reportes-perdida/", headers=auth(user), json={
+        "categoria": "LLAVES", "descripcion": "Llaves rojas",
+        "lugar_perdida_id": str(ub.ubicacion_id), "fecha_perdida": str(date.today())}).json()["reportePerdida_id"]
+    client.put(f"/reportes-perdida/{rid}/solicitar-eliminacion", headers=auth(user), json={"motivo": "ya apareció"})
+    res = [r["resumen"] for r in client.get("/auditoria", headers=auth(admin)).json()]
+    assert any("cambió el estado del reporte" in r for r in res), res
+    assert not any(" de el " in r for r in res)
