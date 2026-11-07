@@ -11,6 +11,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.core.auth import get_current_admin_con_sede, get_current_user
@@ -53,6 +54,12 @@ def _validar_objeto_de_sede(db: Session, objetoEnCustodia_id: UUID, sede_id: UUI
         )
 
     return objeto
+
+
+_MSG_PREGUNTA_CON_RESPUESTAS = (
+    "No se puede eliminar: ya hay reclamos que respondieron esta pregunta. "
+    "Edítala en lugar de eliminarla."
+)
 
 
 def _validar_pregunta_de_sede_admin(
@@ -252,6 +259,13 @@ async def eliminar_pregunta_seguridad(
     except HTTPException:
         raise
 
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=_MSG_PREGUNTA_CON_RESPUESTAS,
+        )
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -278,6 +292,13 @@ async def eliminar_preguntas_seguridad_de_objeto(
 
     except HTTPException:
         raise
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=_MSG_PREGUNTA_CON_RESPUESTAS,
+        )
 
     except Exception as e:
         raise HTTPException(
