@@ -1,0 +1,108 @@
+--- a/src/endpoints/PublicacionEncontrado.py	2026-11-19 20:29:16.606211671 -0500
++++ b/src/endpoints/PublicacionEncontrado.py	2026-11-19 20:31:19.759298853 -0500
+@@ -18,6 +18,7 @@
+ )
+ from src.crud.PublicacionEncontrado_crud import PublicacionEncontradoCRUD
+ from src.crud.PuntoEntrega_crud import PuntoEntregaCRUD
++from src.crud.Ubicacion_crud import UbicacionCRUD
+ from src.database.config import get_db
+ from src.schemas.schemas import RespuestaAPI
+ from src.entities.PublicacionEncontrado import PublicacionEncontrado
+@@ -82,6 +83,18 @@
+     current_user=Depends(get_current_user_con_celular),
+ ):
+     try:
++        lugar = UbicacionCRUD(db).obtener_ubicacion_por_id(data.lugar_hallazgo_id)
++        if lugar is None or lugar.activa is False:
++            raise ValueError("El lugar donde se encontró el objeto no existe o está inactivo")
++        punto = PuntoEntregaCRUD(db).obtener_punto_entrega_por_id(
++            data.lugar_entrega_fisica_id
++        )
++        if punto is None:
++            raise ValueError("El punto de entrega seleccionado no existe")
++        if punto.sede_id != lugar.sede_id:
++            raise ValueError(
++                "El punto de entrega debe estar en la misma sede donde se encontró el objeto"
++            )
+         crud = PublicacionEncontradoCRUD(db)
+         return crud.crear_publicacion_encontrada(
+             usuario_id=current_user.id_usuario,
+--- a/src/endpoints/ReportePerdida.py	2026-11-19 20:29:16.616401964 -0500
++++ b/src/endpoints/ReportePerdida.py	2026-11-19 20:31:19.759067825 -0500
+@@ -98,6 +98,9 @@
+     current_user=Depends(get_current_user_con_celular),
+ ):
+     try:
++        lugar = UbicacionCRUD(db).obtener_ubicacion_por_id(data.lugar_perdida_id)
++        if lugar is None or lugar.activa is False:
++            raise ValueError("El lugar seleccionado no existe o está inactivo")
+         crud = ReportePerdidaCRUD(db)
+         return crud.crear_reporte_perdida(
+             usuario_id=current_user.id_usuario,
+--- a/tests/test_zonas_por_sede.py	1969-12-31 19:00:00.000000000 -0500
++++ b/tests/test_zonas_por_sede.py	2026-11-19 20:31:19.763953957 -0500
+@@ -0,0 +1,64 @@
++import uuid
++from datetime import date
++
++from src.entities.PuntoEntrega import PuntoEntrega
++from src.entities.Sede import Sede
++from src.entities.Ubicacion import Ubicacion
++
++
++def _otra_sede(db):
++    s = Sede(nombre="Castilla", codigo="CAST")
++    db.add(s)
++    db.commit()
++    p = PuntoEntrega(sede_id=s.sede_id, nombre="Oficina Castilla", tipo="OFICINA")
++    u = Ubicacion(nombre="Bloque C", tipo="BLOQUE", sede_id=s.sede_id)
++    db.add_all([p, u])
++    db.commit()
++    return s, p, u
++
++
++def _ubic(db, sede, nombre="Cafetería"):
++    u = Ubicacion(nombre=nombre, tipo="ZONA_COMUN", sede_id=sede.sede_id)
++    db.add(u)
++    db.commit()
++    return u
++
++
++def _hallazgo(u, p):
++    return {
++        "categoria": "LLAVES",
++        "descripcion": "Llavero con tres llaves",
++        "lugar_hallazgo_id": str(u.ubicacion_id),
++        "lugar_entrega_fisica_id": str(p.puntoEntrega_id),
++        "fecha_hallazgo": date.today().isoformat(),
++    }
++
++
++def test_hallazgo_en_misma_sede_ok(client, auth, make_user, db, sede, punto):
++    user = make_user()
++    r = client.post("/publicaciones-encontradas/", json=_hallazgo(_ubic(db, sede), punto), headers=auth(user))
++    assert r.status_code == 201, r.text
++
++
++def test_hallazgo_con_punto_de_otra_sede_se_rechaza(client, auth, make_user, db, sede, punto):
++    user = make_user()
++    _, punto_otra, _ = _otra_sede(db)
++    r = client.post("/publicaciones-encontradas/", json=_hallazgo(_ubic(db, sede), punto_otra), headers=auth(user))
++    assert r.status_code == 400
++    assert "misma sede" in r.text
++
++
++def test_hallazgo_con_lugar_inexistente(client, auth, make_user, db, punto):
++    user = make_user()
++    body = {**_hallazgo(type("U", (), {"ubicacion_id": uuid.uuid4()}), punto)}
++    r = client.post("/publicaciones-encontradas/", json=body, headers=auth(user))
++    assert r.status_code == 400
++
++
++def test_reporte_perdida_lugar_inexistente(client, auth, make_user):
++    user = make_user()
++    r = client.post("/reportes-perdida/", json={
++        "categoria": "LLAVES", "descripcion": "Llaves perdidas en la mañana",
++        "lugar_perdida_id": str(uuid.uuid4()), "fecha_perdida": date.today().isoformat(),
++    }, headers=auth(user))
++    assert r.status_code == 400

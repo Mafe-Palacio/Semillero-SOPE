@@ -32,7 +32,7 @@ router = APIRouter(
 
 
 @router.post("/ejecutar-matching", response_model=RespuestaAPI)
-async def ejecutar_matching(
+def ejecutar_matching(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
@@ -88,7 +88,7 @@ async def ejecutar_matching(
 @router.post(
     "", response_model=PosibleCoincidenciaResponse, status_code=status.HTTP_201_CREATED
 )
-async def crear_coincidencia(
+def crear_coincidencia(
     match_data: PosibleCoincidenciaCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -136,7 +136,7 @@ async def crear_coincidencia(
 
 
 @router.get("", response_model=List[PosibleCoincidenciaDetalle])
-async def listar_coincidencias(
+def listar_coincidencias(
     response: Response,
     reporte_perdida_id: Optional[UUID] = Query(None),
     objeto_id: Optional[UUID] = Query(None, description="Objeto en custodia"),
@@ -171,7 +171,7 @@ async def listar_coincidencias(
 
 
 @router.get("/{coincidencia_id}", response_model=PosibleCoincidenciaResponse)
-async def obtener_coincidencia(
+def obtener_coincidencia(
     coincidencia_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -191,7 +191,7 @@ async def obtener_coincidencia(
 
 
 @router.put("/{coincidencia_id}", response_model=PosibleCoincidenciaResponse)
-async def actualizar_coincidencia(
+def actualizar_coincidencia(
     coincidencia_id: UUID,
     match_data: PosibleCoincidenciaUpdate,
     db: Session = Depends(get_db),

@@ -35,7 +35,7 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(
+def login(
     data: LoginRequest,
     db: Session = Depends(get_db),
 ):
@@ -98,7 +98,7 @@ async def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_access_token(
+def refresh_access_token(
     data: RefreshRequest,
     db: Session = Depends(get_db),
 ):
@@ -180,7 +180,7 @@ async def refresh_access_token(
 
 
 @router.post("/logout", response_model=RespuestaAPI)
-async def logout(
+def logout(
     data: Optional[LogoutRequest] = None,
     credentials: Annotated[
         Optional[HTTPAuthorizationCredentials], Depends(bearer_scheme)

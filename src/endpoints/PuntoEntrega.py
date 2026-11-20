@@ -30,7 +30,7 @@ router = APIRouter(
 @router.post(
     "/", response_model=PuntoEntregaResponse, status_code=status.HTTP_201_CREATED
 )
-async def crear_punto_entrega(
+def crear_punto_entrega(
     punto_entrega_data: PuntoEntregaCreate,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -57,7 +57,7 @@ async def crear_punto_entrega(
 
 
 @router.get("/", response_model=List[PuntoEntregaResponse])
-async def obtener_todos_puntos_entrega(
+def obtener_todos_puntos_entrega(
     sede_id: Optional[UUID] = Query(None, description="Filtrar por sede"),
     tipo: Optional[str] = Query(
         None,
@@ -144,7 +144,7 @@ async def obtener_todos_puntos_entrega(
 
 
 @router.get("/{puntoEntrega_id}", response_model=PuntoEntregaResponse)
-async def obtener_punto_entrega(
+def obtener_punto_entrega(
     puntoEntrega_id: UUID,
     db: Session = Depends(get_db),
 ):
@@ -171,7 +171,7 @@ async def obtener_punto_entrega(
 
 
 @router.put("/{puntoEntrega_id}", response_model=PuntoEntregaResponse)
-async def actualizar_punto_entrega(
+def actualizar_punto_entrega(
     puntoEntrega_id: UUID,
     punto_entrega_data: PuntoEntregaUpdate,
     db: Session = Depends(get_db),
@@ -220,7 +220,7 @@ async def actualizar_punto_entrega(
 
 
 @router.delete("/{puntoEntrega_id}", response_model=RespuestaAPI)
-async def desactivar_punto_entrega(
+def desactivar_punto_entrega(
     puntoEntrega_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),

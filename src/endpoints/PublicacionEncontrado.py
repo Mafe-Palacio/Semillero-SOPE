@@ -18,6 +18,7 @@ from src.core.auth import (
 )
 from src.crud.PublicacionEncontrado_crud import PublicacionEncontradoCRUD
 from src.crud.PuntoEntrega_crud import PuntoEntregaCRUD
+from src.crud.Ubicacion_crud import UbicacionCRUD
 from src.database.config import get_db
 from src.schemas.schemas import RespuestaAPI
 from src.entities.PublicacionEncontrado import PublicacionEncontrado
@@ -76,12 +77,24 @@ def _notas_internas(publicacion) -> Optional[str]:
     response_model=PublicacionEncontradoResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def crear_publicacion_encontrada(
+def crear_publicacion_encontrada(
     data: PublicacionEncontradoCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user_con_celular),
 ):
     try:
+        lugar = UbicacionCRUD(db).obtener_ubicacion_por_id(data.lugar_hallazgo_id)
+        if lugar is None or lugar.activa is False:
+            raise ValueError("El lugar donde se encontró el objeto no existe o está inactivo")
+        punto = PuntoEntregaCRUD(db).obtener_punto_entrega_por_id(
+            data.lugar_entrega_fisica_id
+        )
+        if punto is None:
+            raise ValueError("El punto de entrega seleccionado no existe")
+        if punto.sede_id != lugar.sede_id:
+            raise ValueError(
+                "El punto de entrega debe estar en la misma sede donde se encontró el objeto"
+            )
         crud = PublicacionEncontradoCRUD(db)
         return crud.crear_publicacion_encontrada(
             usuario_id=current_user.id_usuario,
@@ -107,7 +120,7 @@ async def crear_publicacion_encontrada(
 
 
 @router.get("/me", response_model=List[PublicacionEncontradoResponse])
-async def obtener_mis_publicaciones(
+def obtener_mis_publicaciones(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -120,7 +133,7 @@ async def obtener_mis_publicaciones(
 
 
 @public_router.get("/buscar", response_model=List[PublicacionEncontradoPublico])
-async def buscar_publicaciones_por_sede_hallazgo(
+def buscar_publicaciones_por_sede_hallazgo(
     sede_id: UUID = Query(..., description="Sede donde se busca el objeto encontrado"),
     categoria: Optional[str] = Query(None),
     skip: int = 0,
@@ -146,7 +159,7 @@ async def buscar_publicaciones_por_sede_hallazgo(
 
 
 @router.get("/", response_model=List[PublicacionEncontradoResponse])
-async def obtener_publicaciones_encontradas(
+def obtener_publicaciones_encontradas(
     usuario_id: Optional[UUID] = Query(None),
     categoria: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
@@ -192,7 +205,7 @@ async def obtener_publicaciones_encontradas(
 
 
 @router.get("/{publicacion_id}", response_model=PublicacionEncontradoResponse)
-async def obtener_publicacion_encontrada(
+def obtener_publicacion_encontrada(
     publicacion_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -220,7 +233,7 @@ async def obtener_publicacion_encontrada(
 
 
 @router.put("/{publicacion_id}", response_model=PublicacionEncontradoResponse)
-async def editar_publicacion_encontrada(
+def editar_publicacion_encontrada(
     publicacion_id: UUID,
     data: PublicacionEncontradoUpdate,
     db: Session = Depends(get_db),
@@ -264,7 +277,7 @@ async def editar_publicacion_encontrada(
 @router.put(
     "/{publicacion_id}/moderacion", response_model=PublicacionEncontradoResponse
 )
-async def moderar_publicacion_encontrada(
+def moderar_publicacion_encontrada(
     publicacion_id: UUID,
     data: PublicacionEncontradoModeracion,
     db: Session = Depends(get_db),
@@ -332,7 +345,7 @@ async def moderar_publicacion_encontrada(
     "/{publicacion_id}/solicitar-eliminacion",
     response_model=PublicacionEncontradoResponse,
 )
-async def solicitar_eliminacion_publicacion(
+def solicitar_eliminacion_publicacion(
     publicacion_id: UUID,
     datos: Optional[PublicacionEncontradoSolicitudEliminacion] = None,
     db: Session = Depends(get_db),
@@ -363,7 +376,7 @@ async def solicitar_eliminacion_publicacion(
     "/{publicacion_id}/resolver-eliminacion",
     response_model=Optional[PublicacionEncontradoResponse],
 )
-async def resolver_eliminacion_publicacion(
+def resolver_eliminacion_publicacion(
     publicacion_id: UUID,
     data: PublicacionEncontradoResolverEliminacion,
     db: Session = Depends(get_db),
@@ -399,7 +412,7 @@ async def resolver_eliminacion_publicacion(
 
 
 @router.delete("/{publicacion_id}", response_model=RespuestaAPI)
-async def eliminar_publicacion_encontrada(
+def eliminar_publicacion_encontrada(
     publicacion_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),

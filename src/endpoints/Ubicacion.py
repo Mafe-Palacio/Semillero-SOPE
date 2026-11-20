@@ -28,7 +28,7 @@ router = APIRouter(
 
 
 @router.post("/", response_model=UbicacionResponse, status_code=status.HTTP_201_CREATED)
-async def crear_ubicacion(
+def crear_ubicacion(
     ubicacion_data: UbicacionCreate,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -57,7 +57,7 @@ async def crear_ubicacion(
 
 
 @router.get("/", response_model=List[UbicacionResponse])
-async def obtener_todas_ubicaciones(
+def obtener_todas_ubicaciones(
     sede: Optional[UUID] = Query(None, description="Filtrar por sede"),
     tipo: Optional[str] = Query(
         None,
@@ -144,7 +144,7 @@ async def obtener_todas_ubicaciones(
 
 
 @router.get("/{ubicacion_id}", response_model=UbicacionResponse)
-async def obtener_ubicacion(
+def obtener_ubicacion(
     ubicacion_id: UUID,
     db: Session = Depends(get_db),
 ):
@@ -171,7 +171,7 @@ async def obtener_ubicacion(
 
 
 @router.put("/{ubicacion_id}", response_model=UbicacionResponse)
-async def actualizar_ubicacion(
+def actualizar_ubicacion(
     ubicacion_id: UUID,
     ubicacion_data: UbicacionUpdate,
     db: Session = Depends(get_db),
@@ -220,7 +220,7 @@ async def actualizar_ubicacion(
 
 
 @router.delete("/{ubicacion_id}", response_model=RespuestaAPI)
-async def desactivar_ubicacion(
+def desactivar_ubicacion(
     ubicacion_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),

@@ -26,7 +26,7 @@ router = APIRouter(
 @router.post(
     "", response_model=ActaEntregaResponse, status_code=status.HTTP_201_CREATED
 )
-async def registrar_acta_entrega(
+def registrar_acta_entrega(
     acta_data: ActaEntregaCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -107,7 +107,7 @@ async def registrar_acta_entrega(
 
 
 @router.get("", response_model=List[ActaEntregaResponse])
-async def listar_actas(
+def listar_actas(
     response: Response,
     fecha_desde: Optional[date] = Query(None, description="Entregas desde (inclusive)"),
     fecha_hasta: Optional[date] = Query(None, description="Entregas hasta (inclusive)"),
@@ -141,7 +141,7 @@ async def listar_actas(
 
 
 @router.get("/{acta_id}", response_model=ActaEntregaResponse)
-async def obtener_acta(
+def obtener_acta(
     acta_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),

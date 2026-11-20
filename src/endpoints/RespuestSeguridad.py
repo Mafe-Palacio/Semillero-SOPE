@@ -46,7 +46,7 @@ def _es_dueno_o_admin(db: Session, reclamo, current_user) -> bool:
     response_model=RespuestaSeguridadResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def crear_respuesta(
+def crear_respuesta(
     respuesta_data: RespuestaSeguridadCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -101,7 +101,7 @@ async def crear_respuesta(
 
 
 @router.get("/reclamo/{reclamo_id}", response_model=List[RespuestaSeguridadResponse])
-async def obtener_respuestas_por_reclamo(
+def obtener_respuestas_por_reclamo(
     reclamo_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -132,7 +132,7 @@ async def obtener_respuestas_por_reclamo(
 
 
 @router.get("/{respuesta_id}", response_model=RespuestaSeguridadResponse)
-async def obtener_respuesta(
+def obtener_respuesta(
     respuesta_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -167,7 +167,7 @@ async def obtener_respuesta(
 
 
 @router.put("/{respuesta_id}", response_model=RespuestaSeguridadResponse)
-async def actualizar_respuesta(
+def actualizar_respuesta(
     respuesta_id: UUID,
     respuesta_data: RespuestaSeguridadUpdate,
     db: Session = Depends(get_db),
@@ -216,7 +216,7 @@ async def actualizar_respuesta(
 
 
 @router.delete("/{respuesta_id}", response_model=RespuestaAPI)
-async def eliminar_respuesta(
+def eliminar_respuesta(
     respuesta_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),

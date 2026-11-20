@@ -33,7 +33,7 @@ router = APIRouter()
         "código nuevo e invalida el anterior (funciona también como 'reenviar')."
     ),
 )
-async def recuperar_password(
+def recuperar_password(
     data: RecuperarPasswordRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -79,7 +79,7 @@ async def recuperar_password(
     summary="Confirmar código y establecer la nueva contraseña",
     description=f"El código enviado por /auth/recuperar-password expira a los {OTP_EXPIRACION_MINUTOS} minutos.",
 )
-async def resetear_password(
+def resetear_password(
     data: ResetearPasswordRequest,
     db: Session = Depends(get_db),
 ):

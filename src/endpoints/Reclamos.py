@@ -35,7 +35,7 @@ router = APIRouter(
 
 
 @router.post("", response_model=ReclamoResponse, status_code=status.HTTP_201_CREATED)
-async def crear_reclamo(
+def crear_reclamo(
     reclamo_data: ReclamoCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -91,7 +91,7 @@ async def crear_reclamo(
 
 
 @router.get("", response_model=List[ReclamoResponse])
-async def obtener_todos_reclamos(
+def obtener_todos_reclamos(
     estado: Optional[str] = Query(None, description="Filtra por estado"),
     usuario_id: Optional[UUID] = Query(None, description="Filtra por reclamante"),
     fecha_desde: Optional[datetime] = Query(None, description="Rango de envío: inicio"),
@@ -122,7 +122,7 @@ async def obtener_todos_reclamos(
 
 
 @router.get("/me", response_model=List[ReclamoResponse])
-async def obtener_mis_reclamos(
+def obtener_mis_reclamos(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -138,7 +138,7 @@ async def obtener_mis_reclamos(
 
 
 @router.get("/{reclamo_id}", response_model=ReclamoResponse)
-async def obtener_reclamo(
+def obtener_reclamo(
     reclamo_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -171,7 +171,7 @@ async def obtener_reclamo(
 
 
 @router.put("/{reclamo_id}/cancelar", response_model=ReclamoResponse)
-async def cancelar_reclamo(
+def cancelar_reclamo(
     reclamo_id: UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -220,7 +220,7 @@ async def cancelar_reclamo(
 
 
 @router.post("/{reclamo_id}/validar-respuestas", response_model=ReclamoResponse)
-async def validar_respuestas_reclamo(
+def validar_respuestas_reclamo(
     reclamo_id: UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -292,7 +292,7 @@ async def validar_respuestas_reclamo(
 
 
 @router.put("/{reclamo_id}", response_model=ReclamoResponse)
-async def actualizar_reclamo(
+def actualizar_reclamo(
     reclamo_id: UUID,
     reclamo_data: ReclamoUpdate,
     background_tasks: BackgroundTasks,

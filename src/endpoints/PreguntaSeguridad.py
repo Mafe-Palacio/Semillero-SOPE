@@ -84,7 +84,7 @@ def _validar_pregunta_de_sede_admin(
     response_model=List[PreguntaSeguridadResponse],
     status_code=status.HTTP_201_CREATED,
 )
-async def crear_preguntas_seguridad(
+def crear_preguntas_seguridad(
     objetoEnCustodia_id: UUID,
     data: PreguntasSeguridadBulkCreate,
     db: Session = Depends(get_db),
@@ -125,7 +125,7 @@ async def crear_preguntas_seguridad(
 @router.get(
     "/objeto/{objetoEnCustodia_id}", response_model=List[PreguntaSeguridadResponse]
 )
-async def obtener_preguntas_seguridad_admin(
+def obtener_preguntas_seguridad_admin(
     objetoEnCustodia_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -151,7 +151,7 @@ async def obtener_preguntas_seguridad_admin(
     "/objeto/{objetoEnCustodia_id}/publico",
     response_model=List[PreguntaSeguridadPublica],
 )
-async def obtener_preguntas_seguridad_publicas(
+def obtener_preguntas_seguridad_publicas(
     objetoEnCustodia_id: UUID,
     db: Session = Depends(get_db),
 ):
@@ -180,7 +180,7 @@ async def obtener_preguntas_seguridad_publicas(
 
 
 @router.get("/{preguntaSeguridad_id}", response_model=PreguntaSeguridadResponse)
-async def obtener_pregunta_seguridad(
+def obtener_pregunta_seguridad(
     preguntaSeguridad_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -202,7 +202,7 @@ async def obtener_pregunta_seguridad(
 
 
 @router.put("/{preguntaSeguridad_id}", response_model=PreguntaSeguridadResponse)
-async def actualizar_pregunta_seguridad(
+def actualizar_pregunta_seguridad(
     preguntaSeguridad_id: UUID,
     data: PreguntaSeguridadEdit,
     db: Session = Depends(get_db),
@@ -240,7 +240,7 @@ async def actualizar_pregunta_seguridad(
 
 
 @router.delete("/{preguntaSeguridad_id}", response_model=RespuestaAPI)
-async def eliminar_pregunta_seguridad(
+def eliminar_pregunta_seguridad(
     preguntaSeguridad_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -274,7 +274,7 @@ async def eliminar_pregunta_seguridad(
 
 
 @router.delete("/objeto/{objetoEnCustodia_id}", response_model=RespuestaAPI)
-async def eliminar_preguntas_seguridad_de_objeto(
+def eliminar_preguntas_seguridad_de_objeto(
     objetoEnCustodia_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),

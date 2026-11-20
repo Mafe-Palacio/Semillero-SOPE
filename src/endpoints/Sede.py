@@ -24,7 +24,7 @@ router = APIRouter(
 
 
 @router.post("/", response_model=SedeResponse, status_code=status.HTTP_201_CREATED)
-async def crear_sede(
+def crear_sede(
     sede_data: SedeCreate,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_superadmin),
@@ -51,7 +51,7 @@ async def crear_sede(
 
 
 @router.get("/", response_model=List[SedeResponse])
-async def obtener_todas_sedes(
+def obtener_todas_sedes(
     nombre: Optional[str] = Query(
         None, description="Filtra por nombre parcial (ej. 'frat')"
     ),
@@ -114,7 +114,7 @@ async def obtener_todas_sedes(
 
 
 @router.get("/codigo/{codigo}", response_model=Optional[SedeResponse])
-async def obtener_sede_por_codigo(
+def obtener_sede_por_codigo(
     codigo: str,
     db: Session = Depends(get_db),
 ):
@@ -141,7 +141,7 @@ async def obtener_sede_por_codigo(
 
 
 @router.get("/{sede_id}", response_model=SedeResponse)
-async def obtener_sede(
+def obtener_sede(
     sede_id: UUID,
     db: Session = Depends(get_db),
 ):
@@ -168,7 +168,7 @@ async def obtener_sede(
 
 
 @router.put("/{sede_id}", response_model=SedeResponse)
-async def actualizar_sede(
+def actualizar_sede(
     sede_id: UUID,
     sede_data: SedeUpdate,
     db: Session = Depends(get_db),
@@ -212,7 +212,7 @@ async def actualizar_sede(
 
 
 @router.delete("/{sede_id}", response_model=RespuestaAPI)
-async def desactivar_sede(
+def desactivar_sede(
     sede_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_superadmin),
@@ -248,5 +248,5 @@ public_router = APIRouter(prefix="/sedes", tags=["Catálogo público"])
 
 
 @public_router.get("/publicas", response_model=List[SedeResponse])
-async def listar_sedes_publicas(db: Session = Depends(get_db)):
+def listar_sedes_publicas(db: Session = Depends(get_db)):
     return db.query(SedeModel).filter(SedeModel.activa == True).all()

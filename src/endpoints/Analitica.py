@@ -39,7 +39,7 @@ def _validar_fechas(desde: Optional[date], hasta: Optional[date]) -> None:
 
 
 @metricas_router.get("/resumen", response_model=MetricasResumen)
-async def resumen_metricas(
+def resumen_metricas(
     fecha_desde: Optional[date] = Query(None, description="Inclusive"),
     fecha_hasta: Optional[date] = Query(None, description="Inclusive"),
     db: Session = Depends(get_db),
@@ -82,7 +82,7 @@ def _datos_auditoria(db, sede_id, desde, hasta, entidad, accion):
     responses={200: {"content": {"text/csv": {}, XLSX: {}}}},
     summary="Descargar un reporte en CSV o Excel",
 )
-async def exportar(
+def exportar(
     recurso: Literal[
         "entregas",
         "objetos-custodia",

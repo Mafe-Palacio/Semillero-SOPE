@@ -116,7 +116,7 @@ def _decode_token(token: str, settings: Settings) -> dict:
     )
 
 
-async def get_current_user(
+def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: Session = Depends(get_db),
     x_sede_id: Annotated[UUID | None, Header(alias="X-Sede-Id")] = None,
@@ -152,7 +152,7 @@ async def get_current_user(
     if user.is_blocked:
         raise HTTPException(status_code=403, detail="Usuario bloqueado")
 
-    set_actor(user.usuario_id)  # la auditoría automática registra quién hizo el cambio
+    set_actor(user.usuario_id, db)  # la auditoría automática registra quién hizo el cambio
 
     sede_activa = user.sede_id
     if user.rol == "SUPERADMIN" and x_sede_id is not None:
@@ -172,7 +172,7 @@ async def get_current_user(
     )
 
 
-async def get_current_user_con_celular(
+def get_current_user_con_celular(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
     """HU25/CU04: para crear reportes, publicaciones o reclamos el usuario debe
@@ -191,7 +191,7 @@ async def get_current_user_con_celular(
     return current_user
 
 
-async def get_current_admin(
+def get_current_admin(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
     """Exige rol ADMIN o SUPERADMIN. Úsala en cualquier endpoint de escritura
@@ -201,7 +201,7 @@ async def get_current_admin(
     return current_user
 
 
-async def get_current_superadmin(
+def get_current_superadmin(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
     """Exige rol SUPERADMIN exclusivamente. Úsala en endpoints donde ni
@@ -214,7 +214,7 @@ async def get_current_superadmin(
     return current_user
 
 
-async def get_current_admin_con_sede(
+def get_current_admin_con_sede(
     current_admin: CurrentUser = Depends(get_current_admin),
 ) -> CurrentUser:
     """Exige un administrador con una sede de trabajo. Úsala en endpoints donde

@@ -20,7 +20,7 @@ router = APIRouter(
 
 
 @router.get("", response_model=List[AuditLogDetalleResponse])
-async def obtener_historial_logs(
+def obtener_historial_logs(
     response: Response,
     pagina: int = Query(1, ge=1, description="Número de página (10 registros por página)"),
     entidad: Optional[str] = Query(None, description="Filtra por tipo de entidad"),
@@ -77,7 +77,7 @@ async def obtener_historial_logs(
 
 
 @router.get("/entidad/{entidad}/id/{entidad_id}", response_model=List[AuditLogResponse])
-async def obtener_historial_por_entidad(
+def obtener_historial_por_entidad(
     entidad: str,
     entidad_id: UUID,
     db: Session = Depends(get_db),

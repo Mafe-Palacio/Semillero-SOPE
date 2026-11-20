@@ -88,7 +88,7 @@ def _obtener_objeto_de_sede_o_404(
 @router.post(
     "/", response_model=ObjetoEnCustodiaResponse, status_code=status.HTTP_201_CREATED
 )
-async def registrar_objeto_custodia(
+def registrar_objeto_custodia(
     data: ObjetoEnCustodiaCreate,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -125,7 +125,7 @@ async def registrar_objeto_custodia(
 
 
 @public_router.get("/catalogo", response_model=List[ObjetoEnCustodiaPublico])
-async def obtener_catalogo_publico(
+def obtener_catalogo_publico(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -144,7 +144,7 @@ async def obtener_catalogo_publico(
 
 
 @router.get("/", response_model=List[ObjetoEnCustodiaResponse])
-async def obtener_todos_objetos_custodia(
+def obtener_todos_objetos_custodia(
     punto_entrega: Optional[UUID] = Query(
         None, description="Filtrar por punto de entrega"
     ),
@@ -225,7 +225,7 @@ async def obtener_todos_objetos_custodia(
     "/{objetoEnCustodia_id}",
     response_model=Union[ObjetoEnCustodiaResponse, ObjetoEnCustodiaPublico],
 )
-async def obtener_objeto_custodia(
+def obtener_objeto_custodia(
     objetoEnCustodia_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -275,7 +275,7 @@ async def obtener_objeto_custodia(
 
 
 @router.put("/{objetoEnCustodia_id}", response_model=ObjetoEnCustodiaResponse)
-async def editar_objeto_custodia(
+def editar_objeto_custodia(
     objetoEnCustodia_id: UUID,
     data: ObjetoEnCustodiaUpdate,
     db: Session = Depends(get_db),
@@ -314,7 +314,7 @@ async def editar_objeto_custodia(
 
 
 @router.put("/{objetoEnCustodia_id}/bloquear", response_model=ObjetoEnCustodiaResponse)
-async def bloquear_objeto_para_validacion(
+def bloquear_objeto_para_validacion(
     objetoEnCustodia_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -338,7 +338,7 @@ async def bloquear_objeto_para_validacion(
 
 
 @router.put("/{objetoEnCustodia_id}/liberar", response_model=ObjetoEnCustodiaResponse)
-async def liberar_objeto_validacion(
+def liberar_objeto_validacion(
     objetoEnCustodia_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -362,7 +362,7 @@ async def liberar_objeto_validacion(
 @router.put(
     "/{objetoEnCustodia_id}/marcar-reclamado", response_model=ObjetoEnCustodiaResponse
 )
-async def marcar_objeto_reclamado(
+def marcar_objeto_reclamado(
     objetoEnCustodia_id: UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -409,7 +409,7 @@ async def marcar_objeto_reclamado(
 @router.put(
     "/{objetoEnCustodia_id}/archivar-sin-dueno", response_model=ObjetoEnCustodiaResponse
 )
-async def archivar_objeto_sin_dueno(
+def archivar_objeto_sin_dueno(
     objetoEnCustodia_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),
@@ -440,7 +440,7 @@ async def archivar_objeto_sin_dueno(
 
 
 @router.post("/expiracion", response_model=RespuestaAPI)
-async def ejecutar_expiracion_y_archivado(
+def ejecutar_expiracion_y_archivado(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),

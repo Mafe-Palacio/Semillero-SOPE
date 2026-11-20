@@ -24,9 +24,16 @@ from src.entities.Enums import AccionAuditoria
 _actor: ContextVar[Optional[UUID]] = ContextVar("auditoria_actor", default=None)
 
 
-def set_actor(usuario_id: Optional[UUID]) -> None:
-    """Define quién realiza las operaciones de la petición actual."""
+def set_actor(usuario_id: Optional[UUID], db: Optional[Session] = None) -> None:
+    """Define quién realiza las operaciones de la petición actual.
+
+    Se guarda en la sesión de BD (`db.info`) y no solo en un ContextVar: las
+    dependencias y endpoints síncronos corren en hilos distintos del pool y un
+    ContextVar fijado en uno no llega al otro. La sesión sí es la misma.
+    """
     _actor.set(usuario_id)
+    if db is not None:
+        db.info["auditoria_actor"] = usuario_id
 
 
 # Entidades auditadas -> campos que NO cuentan como una edición del usuario
@@ -122,7 +129,7 @@ def _log(obj, accion: AccionAuditoria, detalle: str, actor: UUID) -> AuditLog:
 
 @event.listens_for(Session, "before_flush")
 def _auditar(session: Session, flush_context, instances) -> None:
-    actor = _actor.get()
+    actor = session.info.get("auditoria_actor") or _actor.get()
     if actor is None:
         return  # operaciones sin usuario autenticado (registro, tareas internas)
 

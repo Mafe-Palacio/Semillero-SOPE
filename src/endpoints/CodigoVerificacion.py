@@ -25,7 +25,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[CodigoVerificacionResponse])
-async def obtener_todos_codigos_verificacion(
+def obtener_todos_codigos_verificacion(
     usuario_id: Optional[UUID] = Query(None, description="Filtrar por usuario"),
     tipo: Optional[str] = Query(
         None, description="Filtrar por tipo ('REGISTRO', 'RECUPERACION_PASSWORD')"
@@ -86,7 +86,7 @@ async def obtener_todos_codigos_verificacion(
 
 
 @router.get("/usuario/{usuario_id}/vigente", response_model=CodigoVerificacionResponse)
-async def obtener_codigo_vigente_de_usuario(
+def obtener_codigo_vigente_de_usuario(
     usuario_id: UUID,
     tipo: str = Query(
         ..., description="Tipo de código ('REGISTRO' o 'RECUPERACION_PASSWORD')"
@@ -119,7 +119,7 @@ async def obtener_codigo_vigente_de_usuario(
 
 
 @router.get("/{codigoVerificacion_id}", response_model=CodigoVerificacionResponse)
-async def obtener_codigo_verificacion(
+def obtener_codigo_verificacion(
     codigoVerificacion_id: UUID,
     db: Session = Depends(get_db),
 ):

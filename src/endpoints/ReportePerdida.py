@@ -47,7 +47,7 @@ public_router = APIRouter(
 
 
 @public_router.get("/publicos", response_model=List[ReportePerdidaPublico])
-async def listar_reportes_perdida_publicos(
+def listar_reportes_perdida_publicos(
     categoria: Optional[str] = Query(None),
     skip: int = 0,
     limit: int = Query(100, le=200),
@@ -92,12 +92,15 @@ def _verificar_sede_admin(reporte: ReportePerdida, current_admin, db: Session) -
 @router.post(
     "/", response_model=ReportePerdidaResponse, status_code=status.HTTP_201_CREATED
 )
-async def crear_reporte_perdida(
+def crear_reporte_perdida(
     data: ReportePerdidaCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user_con_celular),
 ):
     try:
+        lugar = UbicacionCRUD(db).obtener_ubicacion_por_id(data.lugar_perdida_id)
+        if lugar is None or lugar.activa is False:
+            raise ValueError("El lugar seleccionado no existe o está inactivo")
         crud = ReportePerdidaCRUD(db)
         return crud.crear_reporte_perdida(
             usuario_id=current_user.id_usuario,
@@ -123,7 +126,7 @@ async def crear_reporte_perdida(
 
 
 @router.get("/me", response_model=List[ReportePerdidaResponse])
-async def obtener_mis_reportes(
+def obtener_mis_reportes(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -136,7 +139,7 @@ async def obtener_mis_reportes(
 
 
 @router.get("/", response_model=List[ReportePerdidaResponse])
-async def obtener_reportes_perdida(
+def obtener_reportes_perdida(
     usuario_id: Optional[UUID] = Query(None),
     categoria: Optional[str] = Query(None),
     estado: Optional[str] = Query(
@@ -183,7 +186,7 @@ async def obtener_reportes_perdida(
 
 
 @router.get("/{reporte_id}", response_model=ReportePerdidaResponse)
-async def obtener_reporte_perdida(
+def obtener_reporte_perdida(
     reporte_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -211,7 +214,7 @@ async def obtener_reporte_perdida(
 
 
 @router.put("/{reporte_id}", response_model=ReportePerdidaResponse)
-async def editar_reporte_perdida(
+def editar_reporte_perdida(
     reporte_id: UUID,
     data: ReportePerdidaUpdate,
     db: Session = Depends(get_db),
@@ -253,7 +256,7 @@ async def editar_reporte_perdida(
 
 
 @router.put("/{reporte_id}/moderacion", response_model=ReportePerdidaResponse)
-async def moderar_reporte_perdida(
+def moderar_reporte_perdida(
     reporte_id: UUID,
     data: ReportePerdidaModeracion,
     db: Session = Depends(get_db),
@@ -303,7 +306,7 @@ async def moderar_reporte_perdida(
 @router.put(
     "/{reporte_id}/solicitar-eliminacion", response_model=ReportePerdidaResponse
 )
-async def solicitar_eliminacion_reporte(
+def solicitar_eliminacion_reporte(
     reporte_id: UUID,
     datos: Optional[ReportePerdidaSolicitudEliminacion] = None,
     db: Session = Depends(get_db),
@@ -334,7 +337,7 @@ async def solicitar_eliminacion_reporte(
     "/{reporte_id}/resolver-eliminacion",
     response_model=Optional[ReportePerdidaResponse],
 )
-async def resolver_eliminacion_reporte(
+def resolver_eliminacion_reporte(
     reporte_id: UUID,
     data: ReportePerdidaResolverEliminacion,
     db: Session = Depends(get_db),
@@ -368,7 +371,7 @@ async def resolver_eliminacion_reporte(
 
 
 @router.delete("/{reporte_id}", response_model=RespuestaAPI)
-async def eliminar_reporte_perdida(
+def eliminar_reporte_perdida(
     reporte_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin_con_sede),

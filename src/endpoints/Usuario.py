@@ -42,7 +42,7 @@ router = APIRouter(
 
 
 @router.get("/me", response_model=UsuarioResponse)
-async def obtener_mi_perfil(
+def obtener_mi_perfil(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -59,7 +59,7 @@ async def obtener_mi_perfil(
 
 
 @router.put("/me", response_model=UsuarioResponse)
-async def actualizar_mi_perfil(
+def actualizar_mi_perfil(
     data: UsuarioUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -84,7 +84,7 @@ async def actualizar_mi_perfil(
 
 
 @router.put("/me/password", response_model=RespuestaAPI)
-async def cambiar_mi_password(
+def cambiar_mi_password(
     data: CambiarPasswordRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -128,7 +128,7 @@ async def cambiar_mi_password(
 
 
 @router.get("/", response_model=List[UsuarioResponse])
-async def obtener_todos_usuarios(
+def obtener_todos_usuarios(
     nombre: Optional[str] = Query(None, description="Filtra por nombre parcial"),
     rol: Optional[str] = Query(None, description="Filtra por rol: 'ADMIN' o 'USER'"),
     tipo_vinculacion: Optional[str] = Query(
@@ -218,7 +218,7 @@ async def obtener_todos_usuarios(
 
 
 @router.get("/correo/{correo}", response_model=Optional[UsuarioResponse])
-async def obtener_usuario_por_correo(
+def obtener_usuario_por_correo(
     correo: str,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
@@ -236,7 +236,7 @@ async def obtener_usuario_por_correo(
 
 
 @router.get("/cedula/{cedula}", response_model=Optional[UsuarioResponse])
-async def obtener_usuario_por_cedula(
+def obtener_usuario_por_cedula(
     cedula: str,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
@@ -254,7 +254,7 @@ async def obtener_usuario_por_cedula(
 
 
 @router.get("/carnet/{carnet}", response_model=Optional[UsuarioResponse])
-async def obtener_usuario_por_carnet(
+def obtener_usuario_por_carnet(
     carnet: str,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
@@ -272,7 +272,7 @@ async def obtener_usuario_por_carnet(
 
 
 @router.get("/administradores/sede/{sede_id}", response_model=List[UsuarioResponse])
-async def obtener_administradores_por_sede(
+def obtener_administradores_por_sede(
     sede_id: UUID,
     skip: int = 0,
     limit: int = 100,
@@ -306,7 +306,7 @@ def _exigir_superadmin_si_es_admin(usuario: Usuario, current_admin) -> None:
 
 
 @router.get("/resumen", response_model=List[UsuarioResumen])
-async def listar_usuarios_con_actividad(
+def listar_usuarios_con_actividad(
     nombre: Optional[str] = Query(None, description="Filtra por nombre parcial"),
     activo: Optional[bool] = Query(None),
     bloqueado: Optional[bool] = Query(None),
@@ -332,7 +332,7 @@ async def listar_usuarios_con_actividad(
 
 
 @router.get("/administradores", response_model=List[UsuarioResponse])
-async def listar_administradores(
+def listar_administradores(
     sede_id: Optional[UUID] = Query(None, description="Solo los de esta sede"),
     activo: Optional[bool] = Query(None),
     skip: int = 0,
@@ -354,7 +354,7 @@ async def listar_administradores(
     response_model=UsuarioResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def crear_administrador(
+def crear_administrador(
     data: AdminCreate,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_superadmin),
@@ -410,7 +410,7 @@ async def crear_administrador(
 
 
 @router.get("/{usuario_id}", response_model=UsuarioResponse)
-async def obtener_usuario(
+def obtener_usuario(
     usuario_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
@@ -428,7 +428,7 @@ async def obtener_usuario(
 
 
 @router.get("/{usuario_id}/resumen", response_model=UsuarioResumen)
-async def obtener_resumen_usuario(
+def obtener_resumen_usuario(
     usuario_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
@@ -444,7 +444,7 @@ async def obtener_resumen_usuario(
 
 
 @router.put("/{usuario_id}", response_model=UsuarioResponse)
-async def editar_usuario(
+def editar_usuario(
     usuario_id: UUID,
     data: UsuarioAdminEdit,
     db: Session = Depends(get_db),
@@ -494,7 +494,7 @@ async def editar_usuario(
 
 
 @router.put("/{usuario_id}/moderacion", response_model=UsuarioResponse)
-async def moderar_usuario(
+def moderar_usuario(
     usuario_id: UUID,
     data: UsuarioAdminUpdate,
     background_tasks: BackgroundTasks,
@@ -579,7 +579,7 @@ async def moderar_usuario(
 
 
 @router.delete("/{usuario_id}", response_model=RespuestaAPI)
-async def desactivar_usuario(
+def desactivar_usuario(
     usuario_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
@@ -619,7 +619,7 @@ async def desactivar_usuario(
 
 
 @router.post("/{usuario_id}/reactivar", response_model=UsuarioResponse)
-async def reactivar_usuario(
+def reactivar_usuario(
     usuario_id: UUID,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),

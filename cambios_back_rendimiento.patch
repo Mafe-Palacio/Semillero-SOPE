@@ -1,0 +1,1074 @@
+--- a/src/core/auditoria.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/core/auditoria.py	2026-11-19 20:30:07.796976559 -0500
+@@ -24,9 +24,16 @@
+ _actor: ContextVar[Optional[UUID]] = ContextVar("auditoria_actor", default=None)
+ 
+ 
+-def set_actor(usuario_id: Optional[UUID]) -> None:
+-    """Define quién realiza las operaciones de la petición actual."""
++def set_actor(usuario_id: Optional[UUID], db: Optional[Session] = None) -> None:
++    """Define quién realiza las operaciones de la petición actual.
++
++    Se guarda en la sesión de BD (`db.info`) y no solo en un ContextVar: las
++    dependencias y endpoints síncronos corren en hilos distintos del pool y un
++    ContextVar fijado en uno no llega al otro. La sesión sí es la misma.
++    """
+     _actor.set(usuario_id)
++    if db is not None:
++        db.info["auditoria_actor"] = usuario_id
+ 
+ 
+ # Entidades auditadas -> campos que NO cuentan como una edición del usuario
+@@ -122,7 +129,7 @@
+ 
+ @event.listens_for(Session, "before_flush")
+ def _auditar(session: Session, flush_context, instances) -> None:
+-    actor = _actor.get()
++    actor = session.info.get("auditoria_actor") or _actor.get()
+     if actor is None:
+         return  # operaciones sin usuario autenticado (registro, tareas internas)
+ 
+--- a/src/core/auth.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/core/auth.py	2026-11-19 20:30:07.797417841 -0500
+@@ -116,7 +116,7 @@
+     )
+ 
+ 
+-async def get_current_user(
++def get_current_user(
+     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+     db: Session = Depends(get_db),
+     x_sede_id: Annotated[UUID | None, Header(alias="X-Sede-Id")] = None,
+@@ -152,7 +152,7 @@
+     if user.is_blocked:
+         raise HTTPException(status_code=403, detail="Usuario bloqueado")
+ 
+-    set_actor(user.usuario_id)  # la auditoría automática registra quién hizo el cambio
++    set_actor(user.usuario_id, db)  # la auditoría automática registra quién hizo el cambio
+ 
+     sede_activa = user.sede_id
+     if user.rol == "SUPERADMIN" and x_sede_id is not None:
+@@ -172,7 +172,7 @@
+     )
+ 
+ 
+-async def get_current_user_con_celular(
++def get_current_user_con_celular(
+     current_user: CurrentUser = Depends(get_current_user),
+ ) -> CurrentUser:
+     """HU25/CU04: para crear reportes, publicaciones o reclamos el usuario debe
+@@ -191,7 +191,7 @@
+     return current_user
+ 
+ 
+-async def get_current_admin(
++def get_current_admin(
+     current_user: CurrentUser = Depends(get_current_user),
+ ) -> CurrentUser:
+     """Exige rol ADMIN o SUPERADMIN. Úsala en cualquier endpoint de escritura
+@@ -201,7 +201,7 @@
+     return current_user
+ 
+ 
+-async def get_current_superadmin(
++def get_current_superadmin(
+     current_user: CurrentUser = Depends(get_current_user),
+ ) -> CurrentUser:
+     """Exige rol SUPERADMIN exclusivamente. Úsala en endpoints donde ni
+@@ -214,7 +214,7 @@
+     return current_user
+ 
+ 
+-async def get_current_admin_con_sede(
++def get_current_admin_con_sede(
+     current_admin: CurrentUser = Depends(get_current_admin),
+ ) -> CurrentUser:
+     """Exige un administrador con una sede de trabajo. Úsala en endpoints donde
+--- a/src/endpoints/ActaEntrega.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/ActaEntrega.py	2026-11-19 20:29:16.582513990 -0500
+@@ -26,7 +26,7 @@
+ @router.post(
+     "", response_model=ActaEntregaResponse, status_code=status.HTTP_201_CREATED
+ )
+-async def registrar_acta_entrega(
++def registrar_acta_entrega(
+     acta_data: ActaEntregaCreate,
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+@@ -107,7 +107,7 @@
+ 
+ 
+ @router.get("", response_model=List[ActaEntregaResponse])
+-async def listar_actas(
++def listar_actas(
+     response: Response,
+     fecha_desde: Optional[date] = Query(None, description="Entregas desde (inclusive)"),
+     fecha_hasta: Optional[date] = Query(None, description="Entregas hasta (inclusive)"),
+@@ -141,7 +141,7 @@
+ 
+ 
+ @router.get("/{acta_id}", response_model=ActaEntregaResponse)
+-async def obtener_acta(
++def obtener_acta(
+     acta_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+--- a/src/endpoints/Analitica.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/Analitica.py	2026-11-19 20:29:16.585551909 -0500
+@@ -39,7 +39,7 @@
+ 
+ 
+ @metricas_router.get("/resumen", response_model=MetricasResumen)
+-async def resumen_metricas(
++def resumen_metricas(
+     fecha_desde: Optional[date] = Query(None, description="Inclusive"),
+     fecha_hasta: Optional[date] = Query(None, description="Inclusive"),
+     db: Session = Depends(get_db),
+@@ -82,7 +82,7 @@
+     responses={200: {"content": {"text/csv": {}, XLSX: {}}}},
+     summary="Descargar un reporte en CSV o Excel",
+ )
+-async def exportar(
++def exportar(
+     recurso: Literal[
+         "entregas",
+         "objetos-custodia",
+--- a/src/endpoints/AuditoriaLog.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/AuditoriaLog.py	2026-11-19 20:29:16.589095650 -0500
+@@ -20,7 +20,7 @@
+ 
+ 
+ @router.get("", response_model=List[AuditLogDetalleResponse])
+-async def obtener_historial_logs(
++def obtener_historial_logs(
+     response: Response,
+     pagina: int = Query(1, ge=1, description="Número de página (10 registros por página)"),
+     entidad: Optional[str] = Query(None, description="Filtra por tipo de entidad"),
+@@ -77,7 +77,7 @@
+ 
+ 
+ @router.get("/entidad/{entidad}/id/{entidad_id}", response_model=List[AuditLogResponse])
+-async def obtener_historial_por_entidad(
++def obtener_historial_por_entidad(
+     entidad: str,
+     entidad_id: UUID,
+     db: Session = Depends(get_db),
+--- a/src/endpoints/CodigoVerificacion.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/CodigoVerificacion.py	2026-11-19 20:29:16.592218856 -0500
+@@ -25,7 +25,7 @@
+ 
+ 
+ @router.get("/", response_model=List[CodigoVerificacionResponse])
+-async def obtener_todos_codigos_verificacion(
++def obtener_todos_codigos_verificacion(
+     usuario_id: Optional[UUID] = Query(None, description="Filtrar por usuario"),
+     tipo: Optional[str] = Query(
+         None, description="Filtrar por tipo ('REGISTRO', 'RECUPERACION_PASSWORD')"
+@@ -86,7 +86,7 @@
+ 
+ 
+ @router.get("/usuario/{usuario_id}/vigente", response_model=CodigoVerificacionResponse)
+-async def obtener_codigo_vigente_de_usuario(
++def obtener_codigo_vigente_de_usuario(
+     usuario_id: UUID,
+     tipo: str = Query(
+         ..., description="Tipo de código ('REGISTRO' o 'RECUPERACION_PASSWORD')"
+@@ -119,7 +119,7 @@
+ 
+ 
+ @router.get("/{codigoVerificacion_id}", response_model=CodigoVerificacionResponse)
+-async def obtener_codigo_verificacion(
++def obtener_codigo_verificacion(
+     codigoVerificacion_id: UUID,
+     db: Session = Depends(get_db),
+ ):
+--- a/src/endpoints/ObjetoEnCustodia.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/ObjetoEnCustodia.py	2026-11-19 20:29:16.597054980 -0500
+@@ -88,7 +88,7 @@
+ @router.post(
+     "/", response_model=ObjetoEnCustodiaResponse, status_code=status.HTTP_201_CREATED
+ )
+-async def registrar_objeto_custodia(
++def registrar_objeto_custodia(
+     data: ObjetoEnCustodiaCreate,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -125,7 +125,7 @@
+ 
+ 
+ @public_router.get("/catalogo", response_model=List[ObjetoEnCustodiaPublico])
+-async def obtener_catalogo_publico(
++def obtener_catalogo_publico(
+     skip: int = 0,
+     limit: int = 100,
+     db: Session = Depends(get_db),
+@@ -144,7 +144,7 @@
+ 
+ 
+ @router.get("/", response_model=List[ObjetoEnCustodiaResponse])
+-async def obtener_todos_objetos_custodia(
++def obtener_todos_objetos_custodia(
+     punto_entrega: Optional[UUID] = Query(
+         None, description="Filtrar por punto de entrega"
+     ),
+@@ -225,7 +225,7 @@
+     "/{objetoEnCustodia_id}",
+     response_model=Union[ObjetoEnCustodiaResponse, ObjetoEnCustodiaPublico],
+ )
+-async def obtener_objeto_custodia(
++def obtener_objeto_custodia(
+     objetoEnCustodia_id: UUID,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+@@ -275,7 +275,7 @@
+ 
+ 
+ @router.put("/{objetoEnCustodia_id}", response_model=ObjetoEnCustodiaResponse)
+-async def editar_objeto_custodia(
++def editar_objeto_custodia(
+     objetoEnCustodia_id: UUID,
+     data: ObjetoEnCustodiaUpdate,
+     db: Session = Depends(get_db),
+@@ -314,7 +314,7 @@
+ 
+ 
+ @router.put("/{objetoEnCustodia_id}/bloquear", response_model=ObjetoEnCustodiaResponse)
+-async def bloquear_objeto_para_validacion(
++def bloquear_objeto_para_validacion(
+     objetoEnCustodia_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -338,7 +338,7 @@
+ 
+ 
+ @router.put("/{objetoEnCustodia_id}/liberar", response_model=ObjetoEnCustodiaResponse)
+-async def liberar_objeto_validacion(
++def liberar_objeto_validacion(
+     objetoEnCustodia_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -362,7 +362,7 @@
+ @router.put(
+     "/{objetoEnCustodia_id}/marcar-reclamado", response_model=ObjetoEnCustodiaResponse
+ )
+-async def marcar_objeto_reclamado(
++def marcar_objeto_reclamado(
+     objetoEnCustodia_id: UUID,
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+@@ -409,7 +409,7 @@
+ @router.put(
+     "/{objetoEnCustodia_id}/archivar-sin-dueno", response_model=ObjetoEnCustodiaResponse
+ )
+-async def archivar_objeto_sin_dueno(
++def archivar_objeto_sin_dueno(
+     objetoEnCustodia_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -440,7 +440,7 @@
+ 
+ 
+ @router.post("/expiracion", response_model=RespuestaAPI)
+-async def ejecutar_expiracion_y_archivado(
++def ejecutar_expiracion_y_archivado(
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin),
+--- a/src/endpoints/PosibleCoincidencia.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/PosibleCoincidencia.py	2026-11-19 20:29:16.600206310 -0500
+@@ -32,7 +32,7 @@
+ 
+ 
+ @router.post("/ejecutar-matching", response_model=RespuestaAPI)
+-async def ejecutar_matching(
++def ejecutar_matching(
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin),
+@@ -88,7 +88,7 @@
+ @router.post(
+     "", response_model=PosibleCoincidenciaResponse, status_code=status.HTTP_201_CREATED
+ )
+-async def crear_coincidencia(
++def crear_coincidencia(
+     match_data: PosibleCoincidenciaCreate,
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+@@ -136,7 +136,7 @@
+ 
+ 
+ @router.get("", response_model=List[PosibleCoincidenciaDetalle])
+-async def listar_coincidencias(
++def listar_coincidencias(
+     response: Response,
+     reporte_perdida_id: Optional[UUID] = Query(None),
+     objeto_id: Optional[UUID] = Query(None, description="Objeto en custodia"),
+@@ -171,7 +171,7 @@
+ 
+ 
+ @router.get("/{coincidencia_id}", response_model=PosibleCoincidenciaResponse)
+-async def obtener_coincidencia(
++def obtener_coincidencia(
+     coincidencia_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -191,7 +191,7 @@
+ 
+ 
+ @router.put("/{coincidencia_id}", response_model=PosibleCoincidenciaResponse)
+-async def actualizar_coincidencia(
++def actualizar_coincidencia(
+     coincidencia_id: UUID,
+     match_data: PosibleCoincidenciaUpdate,
+     db: Session = Depends(get_db),
+--- a/src/endpoints/PreguntaSeguridad.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/PreguntaSeguridad.py	2026-11-19 20:29:16.603183059 -0500
+@@ -84,7 +84,7 @@
+     response_model=List[PreguntaSeguridadResponse],
+     status_code=status.HTTP_201_CREATED,
+ )
+-async def crear_preguntas_seguridad(
++def crear_preguntas_seguridad(
+     objetoEnCustodia_id: UUID,
+     data: PreguntasSeguridadBulkCreate,
+     db: Session = Depends(get_db),
+@@ -125,7 +125,7 @@
+ @router.get(
+     "/objeto/{objetoEnCustodia_id}", response_model=List[PreguntaSeguridadResponse]
+ )
+-async def obtener_preguntas_seguridad_admin(
++def obtener_preguntas_seguridad_admin(
+     objetoEnCustodia_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -151,7 +151,7 @@
+     "/objeto/{objetoEnCustodia_id}/publico",
+     response_model=List[PreguntaSeguridadPublica],
+ )
+-async def obtener_preguntas_seguridad_publicas(
++def obtener_preguntas_seguridad_publicas(
+     objetoEnCustodia_id: UUID,
+     db: Session = Depends(get_db),
+ ):
+@@ -180,7 +180,7 @@
+ 
+ 
+ @router.get("/{preguntaSeguridad_id}", response_model=PreguntaSeguridadResponse)
+-async def obtener_pregunta_seguridad(
++def obtener_pregunta_seguridad(
+     preguntaSeguridad_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -202,7 +202,7 @@
+ 
+ 
+ @router.put("/{preguntaSeguridad_id}", response_model=PreguntaSeguridadResponse)
+-async def actualizar_pregunta_seguridad(
++def actualizar_pregunta_seguridad(
+     preguntaSeguridad_id: UUID,
+     data: PreguntaSeguridadEdit,
+     db: Session = Depends(get_db),
+@@ -240,7 +240,7 @@
+ 
+ 
+ @router.delete("/{preguntaSeguridad_id}", response_model=RespuestaAPI)
+-async def eliminar_pregunta_seguridad(
++def eliminar_pregunta_seguridad(
+     preguntaSeguridad_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -274,7 +274,7 @@
+ 
+ 
+ @router.delete("/objeto/{objetoEnCustodia_id}", response_model=RespuestaAPI)
+-async def eliminar_preguntas_seguridad_de_objeto(
++def eliminar_preguntas_seguridad_de_objeto(
+     objetoEnCustodia_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+--- a/src/endpoints/PublicacionEncontrado.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/PublicacionEncontrado.py	2026-11-19 20:29:16.606211671 -0500
+@@ -76,7 +76,7 @@
+     response_model=PublicacionEncontradoResponse,
+     status_code=status.HTTP_201_CREATED,
+ )
+-async def crear_publicacion_encontrada(
++def crear_publicacion_encontrada(
+     data: PublicacionEncontradoCreate,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user_con_celular),
+@@ -107,7 +107,7 @@
+ 
+ 
+ @router.get("/me", response_model=List[PublicacionEncontradoResponse])
+-async def obtener_mis_publicaciones(
++def obtener_mis_publicaciones(
+     skip: int = 0,
+     limit: int = 100,
+     db: Session = Depends(get_db),
+@@ -120,7 +120,7 @@
+ 
+ 
+ @public_router.get("/buscar", response_model=List[PublicacionEncontradoPublico])
+-async def buscar_publicaciones_por_sede_hallazgo(
++def buscar_publicaciones_por_sede_hallazgo(
+     sede_id: UUID = Query(..., description="Sede donde se busca el objeto encontrado"),
+     categoria: Optional[str] = Query(None),
+     skip: int = 0,
+@@ -146,7 +146,7 @@
+ 
+ 
+ @router.get("/", response_model=List[PublicacionEncontradoResponse])
+-async def obtener_publicaciones_encontradas(
++def obtener_publicaciones_encontradas(
+     usuario_id: Optional[UUID] = Query(None),
+     categoria: Optional[str] = Query(None),
+     estado: Optional[str] = Query(None),
+@@ -192,7 +192,7 @@
+ 
+ 
+ @router.get("/{publicacion_id}", response_model=PublicacionEncontradoResponse)
+-async def obtener_publicacion_encontrada(
++def obtener_publicacion_encontrada(
+     publicacion_id: UUID,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+@@ -220,7 +220,7 @@
+ 
+ 
+ @router.put("/{publicacion_id}", response_model=PublicacionEncontradoResponse)
+-async def editar_publicacion_encontrada(
++def editar_publicacion_encontrada(
+     publicacion_id: UUID,
+     data: PublicacionEncontradoUpdate,
+     db: Session = Depends(get_db),
+@@ -264,7 +264,7 @@
+ @router.put(
+     "/{publicacion_id}/moderacion", response_model=PublicacionEncontradoResponse
+ )
+-async def moderar_publicacion_encontrada(
++def moderar_publicacion_encontrada(
+     publicacion_id: UUID,
+     data: PublicacionEncontradoModeracion,
+     db: Session = Depends(get_db),
+@@ -332,7 +332,7 @@
+     "/{publicacion_id}/solicitar-eliminacion",
+     response_model=PublicacionEncontradoResponse,
+ )
+-async def solicitar_eliminacion_publicacion(
++def solicitar_eliminacion_publicacion(
+     publicacion_id: UUID,
+     datos: Optional[PublicacionEncontradoSolicitudEliminacion] = None,
+     db: Session = Depends(get_db),
+@@ -363,7 +363,7 @@
+     "/{publicacion_id}/resolver-eliminacion",
+     response_model=Optional[PublicacionEncontradoResponse],
+ )
+-async def resolver_eliminacion_publicacion(
++def resolver_eliminacion_publicacion(
+     publicacion_id: UUID,
+     data: PublicacionEncontradoResolverEliminacion,
+     db: Session = Depends(get_db),
+@@ -399,7 +399,7 @@
+ 
+ 
+ @router.delete("/{publicacion_id}", response_model=RespuestaAPI)
+-async def eliminar_publicacion_encontrada(
++def eliminar_publicacion_encontrada(
+     publicacion_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+--- a/src/endpoints/PuntoEntrega.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/PuntoEntrega.py	2026-11-19 20:29:16.610291379 -0500
+@@ -30,7 +30,7 @@
+ @router.post(
+     "/", response_model=PuntoEntregaResponse, status_code=status.HTTP_201_CREATED
+ )
+-async def crear_punto_entrega(
++def crear_punto_entrega(
+     punto_entrega_data: PuntoEntregaCreate,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -57,7 +57,7 @@
+ 
+ 
+ @router.get("/", response_model=List[PuntoEntregaResponse])
+-async def obtener_todos_puntos_entrega(
++def obtener_todos_puntos_entrega(
+     sede_id: Optional[UUID] = Query(None, description="Filtrar por sede"),
+     tipo: Optional[str] = Query(
+         None,
+@@ -144,7 +144,7 @@
+ 
+ 
+ @router.get("/{puntoEntrega_id}", response_model=PuntoEntregaResponse)
+-async def obtener_punto_entrega(
++def obtener_punto_entrega(
+     puntoEntrega_id: UUID,
+     db: Session = Depends(get_db),
+ ):
+@@ -171,7 +171,7 @@
+ 
+ 
+ @router.put("/{puntoEntrega_id}", response_model=PuntoEntregaResponse)
+-async def actualizar_punto_entrega(
++def actualizar_punto_entrega(
+     puntoEntrega_id: UUID,
+     punto_entrega_data: PuntoEntregaUpdate,
+     db: Session = Depends(get_db),
+@@ -220,7 +220,7 @@
+ 
+ 
+ @router.delete("/{puntoEntrega_id}", response_model=RespuestaAPI)
+-async def desactivar_punto_entrega(
++def desactivar_punto_entrega(
+     puntoEntrega_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+--- a/src/endpoints/Reclamos.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/Reclamos.py	2026-11-19 20:29:16.613457340 -0500
+@@ -35,7 +35,7 @@
+ 
+ 
+ @router.post("", response_model=ReclamoResponse, status_code=status.HTTP_201_CREATED)
+-async def crear_reclamo(
++def crear_reclamo(
+     reclamo_data: ReclamoCreate,
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+@@ -91,7 +91,7 @@
+ 
+ 
+ @router.get("", response_model=List[ReclamoResponse])
+-async def obtener_todos_reclamos(
++def obtener_todos_reclamos(
+     estado: Optional[str] = Query(None, description="Filtra por estado"),
+     usuario_id: Optional[UUID] = Query(None, description="Filtra por reclamante"),
+     fecha_desde: Optional[datetime] = Query(None, description="Rango de envío: inicio"),
+@@ -122,7 +122,7 @@
+ 
+ 
+ @router.get("/me", response_model=List[ReclamoResponse])
+-async def obtener_mis_reclamos(
++def obtener_mis_reclamos(
+     skip: int = 0,
+     limit: int = 100,
+     db: Session = Depends(get_db),
+@@ -138,7 +138,7 @@
+ 
+ 
+ @router.get("/{reclamo_id}", response_model=ReclamoResponse)
+-async def obtener_reclamo(
++def obtener_reclamo(
+     reclamo_id: UUID,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+@@ -171,7 +171,7 @@
+ 
+ 
+ @router.put("/{reclamo_id}/cancelar", response_model=ReclamoResponse)
+-async def cancelar_reclamo(
++def cancelar_reclamo(
+     reclamo_id: UUID,
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+@@ -220,7 +220,7 @@
+ 
+ 
+ @router.post("/{reclamo_id}/validar-respuestas", response_model=ReclamoResponse)
+-async def validar_respuestas_reclamo(
++def validar_respuestas_reclamo(
+     reclamo_id: UUID,
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+@@ -292,7 +292,7 @@
+ 
+ 
+ @router.put("/{reclamo_id}", response_model=ReclamoResponse)
+-async def actualizar_reclamo(
++def actualizar_reclamo(
+     reclamo_id: UUID,
+     reclamo_data: ReclamoUpdate,
+     background_tasks: BackgroundTasks,
+--- a/src/endpoints/ReportePerdida.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/ReportePerdida.py	2026-11-19 20:29:16.616401964 -0500
+@@ -47,7 +47,7 @@
+ 
+ 
+ @public_router.get("/publicos", response_model=List[ReportePerdidaPublico])
+-async def listar_reportes_perdida_publicos(
++def listar_reportes_perdida_publicos(
+     categoria: Optional[str] = Query(None),
+     skip: int = 0,
+     limit: int = Query(100, le=200),
+@@ -92,7 +92,7 @@
+ @router.post(
+     "/", response_model=ReportePerdidaResponse, status_code=status.HTTP_201_CREATED
+ )
+-async def crear_reporte_perdida(
++def crear_reporte_perdida(
+     data: ReportePerdidaCreate,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user_con_celular),
+@@ -123,7 +123,7 @@
+ 
+ 
+ @router.get("/me", response_model=List[ReportePerdidaResponse])
+-async def obtener_mis_reportes(
++def obtener_mis_reportes(
+     skip: int = 0,
+     limit: int = 100,
+     db: Session = Depends(get_db),
+@@ -136,7 +136,7 @@
+ 
+ 
+ @router.get("/", response_model=List[ReportePerdidaResponse])
+-async def obtener_reportes_perdida(
++def obtener_reportes_perdida(
+     usuario_id: Optional[UUID] = Query(None),
+     categoria: Optional[str] = Query(None),
+     estado: Optional[str] = Query(
+@@ -183,7 +183,7 @@
+ 
+ 
+ @router.get("/{reporte_id}", response_model=ReportePerdidaResponse)
+-async def obtener_reporte_perdida(
++def obtener_reporte_perdida(
+     reporte_id: UUID,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+@@ -211,7 +211,7 @@
+ 
+ 
+ @router.put("/{reporte_id}", response_model=ReportePerdidaResponse)
+-async def editar_reporte_perdida(
++def editar_reporte_perdida(
+     reporte_id: UUID,
+     data: ReportePerdidaUpdate,
+     db: Session = Depends(get_db),
+@@ -253,7 +253,7 @@
+ 
+ 
+ @router.put("/{reporte_id}/moderacion", response_model=ReportePerdidaResponse)
+-async def moderar_reporte_perdida(
++def moderar_reporte_perdida(
+     reporte_id: UUID,
+     data: ReportePerdidaModeracion,
+     db: Session = Depends(get_db),
+@@ -303,7 +303,7 @@
+ @router.put(
+     "/{reporte_id}/solicitar-eliminacion", response_model=ReportePerdidaResponse
+ )
+-async def solicitar_eliminacion_reporte(
++def solicitar_eliminacion_reporte(
+     reporte_id: UUID,
+     datos: Optional[ReportePerdidaSolicitudEliminacion] = None,
+     db: Session = Depends(get_db),
+@@ -334,7 +334,7 @@
+     "/{reporte_id}/resolver-eliminacion",
+     response_model=Optional[ReportePerdidaResponse],
+ )
+-async def resolver_eliminacion_reporte(
++def resolver_eliminacion_reporte(
+     reporte_id: UUID,
+     data: ReportePerdidaResolverEliminacion,
+     db: Session = Depends(get_db),
+@@ -368,7 +368,7 @@
+ 
+ 
+ @router.delete("/{reporte_id}", response_model=RespuestaAPI)
+-async def eliminar_reporte_perdida(
++def eliminar_reporte_perdida(
+     reporte_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+--- a/src/endpoints/RespuestSeguridad.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/RespuestSeguridad.py	2026-11-19 20:29:16.618944415 -0500
+@@ -46,7 +46,7 @@
+     response_model=RespuestaSeguridadResponse,
+     status_code=status.HTTP_201_CREATED,
+ )
+-async def crear_respuesta(
++def crear_respuesta(
+     respuesta_data: RespuestaSeguridadCreate,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+@@ -101,7 +101,7 @@
+ 
+ 
+ @router.get("/reclamo/{reclamo_id}", response_model=List[RespuestaSeguridadResponse])
+-async def obtener_respuestas_por_reclamo(
++def obtener_respuestas_por_reclamo(
+     reclamo_id: UUID,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+@@ -132,7 +132,7 @@
+ 
+ 
+ @router.get("/{respuesta_id}", response_model=RespuestaSeguridadResponse)
+-async def obtener_respuesta(
++def obtener_respuesta(
+     respuesta_id: UUID,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+@@ -167,7 +167,7 @@
+ 
+ 
+ @router.put("/{respuesta_id}", response_model=RespuestaSeguridadResponse)
+-async def actualizar_respuesta(
++def actualizar_respuesta(
+     respuesta_id: UUID,
+     respuesta_data: RespuestaSeguridadUpdate,
+     db: Session = Depends(get_db),
+@@ -216,7 +216,7 @@
+ 
+ 
+ @router.delete("/{respuesta_id}", response_model=RespuestaAPI)
+-async def eliminar_respuesta(
++def eliminar_respuesta(
+     respuesta_id: UUID,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+--- a/src/endpoints/Sede.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/Sede.py	2026-11-19 20:29:16.621221217 -0500
+@@ -24,7 +24,7 @@
+ 
+ 
+ @router.post("/", response_model=SedeResponse, status_code=status.HTTP_201_CREATED)
+-async def crear_sede(
++def crear_sede(
+     sede_data: SedeCreate,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_superadmin),
+@@ -51,7 +51,7 @@
+ 
+ 
+ @router.get("/", response_model=List[SedeResponse])
+-async def obtener_todas_sedes(
++def obtener_todas_sedes(
+     nombre: Optional[str] = Query(
+         None, description="Filtra por nombre parcial (ej. 'frat')"
+     ),
+@@ -114,7 +114,7 @@
+ 
+ 
+ @router.get("/codigo/{codigo}", response_model=Optional[SedeResponse])
+-async def obtener_sede_por_codigo(
++def obtener_sede_por_codigo(
+     codigo: str,
+     db: Session = Depends(get_db),
+ ):
+@@ -141,7 +141,7 @@
+ 
+ 
+ @router.get("/{sede_id}", response_model=SedeResponse)
+-async def obtener_sede(
++def obtener_sede(
+     sede_id: UUID,
+     db: Session = Depends(get_db),
+ ):
+@@ -168,7 +168,7 @@
+ 
+ 
+ @router.put("/{sede_id}", response_model=SedeResponse)
+-async def actualizar_sede(
++def actualizar_sede(
+     sede_id: UUID,
+     sede_data: SedeUpdate,
+     db: Session = Depends(get_db),
+@@ -212,7 +212,7 @@
+ 
+ 
+ @router.delete("/{sede_id}", response_model=RespuestaAPI)
+-async def desactivar_sede(
++def desactivar_sede(
+     sede_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_superadmin),
+@@ -248,5 +248,5 @@
+ 
+ 
+ @public_router.get("/publicas", response_model=List[SedeResponse])
+-async def listar_sedes_publicas(db: Session = Depends(get_db)):
++def listar_sedes_publicas(db: Session = Depends(get_db)):
+     return db.query(SedeModel).filter(SedeModel.activa == True).all()
+--- a/src/endpoints/Ubicacion.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/Ubicacion.py	2026-11-19 20:29:16.623529301 -0500
+@@ -28,7 +28,7 @@
+ 
+ 
+ @router.post("/", response_model=UbicacionResponse, status_code=status.HTTP_201_CREATED)
+-async def crear_ubicacion(
++def crear_ubicacion(
+     ubicacion_data: UbicacionCreate,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+@@ -57,7 +57,7 @@
+ 
+ 
+ @router.get("/", response_model=List[UbicacionResponse])
+-async def obtener_todas_ubicaciones(
++def obtener_todas_ubicaciones(
+     sede: Optional[UUID] = Query(None, description="Filtrar por sede"),
+     tipo: Optional[str] = Query(
+         None,
+@@ -144,7 +144,7 @@
+ 
+ 
+ @router.get("/{ubicacion_id}", response_model=UbicacionResponse)
+-async def obtener_ubicacion(
++def obtener_ubicacion(
+     ubicacion_id: UUID,
+     db: Session = Depends(get_db),
+ ):
+@@ -171,7 +171,7 @@
+ 
+ 
+ @router.put("/{ubicacion_id}", response_model=UbicacionResponse)
+-async def actualizar_ubicacion(
++def actualizar_ubicacion(
+     ubicacion_id: UUID,
+     ubicacion_data: UbicacionUpdate,
+     db: Session = Depends(get_db),
+@@ -220,7 +220,7 @@
+ 
+ 
+ @router.delete("/{ubicacion_id}", response_model=RespuestaAPI)
+-async def desactivar_ubicacion(
++def desactivar_ubicacion(
+     ubicacion_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin_con_sede),
+--- a/src/endpoints/Usuario.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/Usuario.py	2026-11-19 20:29:16.625862477 -0500
+@@ -42,7 +42,7 @@
+ 
+ 
+ @router.get("/me", response_model=UsuarioResponse)
+-async def obtener_mi_perfil(
++def obtener_mi_perfil(
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+ ):
+@@ -59,7 +59,7 @@
+ 
+ 
+ @router.put("/me", response_model=UsuarioResponse)
+-async def actualizar_mi_perfil(
++def actualizar_mi_perfil(
+     data: UsuarioUpdate,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+@@ -84,7 +84,7 @@
+ 
+ 
+ @router.put("/me/password", response_model=RespuestaAPI)
+-async def cambiar_mi_password(
++def cambiar_mi_password(
+     data: CambiarPasswordRequest,
+     db: Session = Depends(get_db),
+     current_user=Depends(get_current_user),
+@@ -128,7 +128,7 @@
+ 
+ 
+ @router.get("/", response_model=List[UsuarioResponse])
+-async def obtener_todos_usuarios(
++def obtener_todos_usuarios(
+     nombre: Optional[str] = Query(None, description="Filtra por nombre parcial"),
+     rol: Optional[str] = Query(None, description="Filtra por rol: 'ADMIN' o 'USER'"),
+     tipo_vinculacion: Optional[str] = Query(
+@@ -218,7 +218,7 @@
+ 
+ 
+ @router.get("/correo/{correo}", response_model=Optional[UsuarioResponse])
+-async def obtener_usuario_por_correo(
++def obtener_usuario_por_correo(
+     correo: str,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin),
+@@ -236,7 +236,7 @@
+ 
+ 
+ @router.get("/cedula/{cedula}", response_model=Optional[UsuarioResponse])
+-async def obtener_usuario_por_cedula(
++def obtener_usuario_por_cedula(
+     cedula: str,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin),
+@@ -254,7 +254,7 @@
+ 
+ 
+ @router.get("/carnet/{carnet}", response_model=Optional[UsuarioResponse])
+-async def obtener_usuario_por_carnet(
++def obtener_usuario_por_carnet(
+     carnet: str,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin),
+@@ -272,7 +272,7 @@
+ 
+ 
+ @router.get("/administradores/sede/{sede_id}", response_model=List[UsuarioResponse])
+-async def obtener_administradores_por_sede(
++def obtener_administradores_por_sede(
+     sede_id: UUID,
+     skip: int = 0,
+     limit: int = 100,
+@@ -306,7 +306,7 @@
+ 
+ 
+ @router.get("/resumen", response_model=List[UsuarioResumen])
+-async def listar_usuarios_con_actividad(
++def listar_usuarios_con_actividad(
+     nombre: Optional[str] = Query(None, description="Filtra por nombre parcial"),
+     activo: Optional[bool] = Query(None),
+     bloqueado: Optional[bool] = Query(None),
+@@ -332,7 +332,7 @@
+ 
+ 
+ @router.get("/administradores", response_model=List[UsuarioResponse])
+-async def listar_administradores(
++def listar_administradores(
+     sede_id: Optional[UUID] = Query(None, description="Solo los de esta sede"),
+     activo: Optional[bool] = Query(None),
+     skip: int = 0,
+@@ -354,7 +354,7 @@
+     response_model=UsuarioResponse,
+     status_code=status.HTTP_201_CREATED,
+ )
+-async def crear_administrador(
++def crear_administrador(
+     data: AdminCreate,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_superadmin),
+@@ -410,7 +410,7 @@
+ 
+ 
+ @router.get("/{usuario_id}", response_model=UsuarioResponse)
+-async def obtener_usuario(
++def obtener_usuario(
+     usuario_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin),
+@@ -428,7 +428,7 @@
+ 
+ 
+ @router.get("/{usuario_id}/resumen", response_model=UsuarioResumen)
+-async def obtener_resumen_usuario(
++def obtener_resumen_usuario(
+     usuario_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin),
+@@ -444,7 +444,7 @@
+ 
+ 
+ @router.put("/{usuario_id}", response_model=UsuarioResponse)
+-async def editar_usuario(
++def editar_usuario(
+     usuario_id: UUID,
+     data: UsuarioAdminEdit,
+     db: Session = Depends(get_db),
+@@ -494,7 +494,7 @@
+ 
+ 
+ @router.put("/{usuario_id}/moderacion", response_model=UsuarioResponse)
+-async def moderar_usuario(
++def moderar_usuario(
+     usuario_id: UUID,
+     data: UsuarioAdminUpdate,
+     background_tasks: BackgroundTasks,
+@@ -579,7 +579,7 @@
+ 
+ 
+ @router.delete("/{usuario_id}", response_model=RespuestaAPI)
+-async def desactivar_usuario(
++def desactivar_usuario(
+     usuario_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin),
+@@ -619,7 +619,7 @@
+ 
+ 
+ @router.post("/{usuario_id}/reactivar", response_model=UsuarioResponse)
+-async def reactivar_usuario(
++def reactivar_usuario(
+     usuario_id: UUID,
+     db: Session = Depends(get_db),
+     current_admin=Depends(get_current_admin),
+--- a/src/endpoints/auth/Login.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/auth/Login.py	2026-11-19 20:29:16.628322842 -0500
+@@ -35,7 +35,7 @@
+ 
+ 
+ @router.post("/login", response_model=TokenResponse)
+-async def login(
++def login(
+     data: LoginRequest,
+     db: Session = Depends(get_db),
+ ):
+@@ -98,7 +98,7 @@
+ 
+ 
+ @router.post("/refresh", response_model=TokenResponse)
+-async def refresh_access_token(
++def refresh_access_token(
+     data: RefreshRequest,
+     db: Session = Depends(get_db),
+ ):
+@@ -180,7 +180,7 @@
+ 
+ 
+ @router.post("/logout", response_model=RespuestaAPI)
+-async def logout(
++def logout(
+     data: Optional[LogoutRequest] = None,
+     credentials: Annotated[
+         Optional[HTTPAuthorizationCredentials], Depends(bearer_scheme)
+--- a/src/endpoints/auth/Password.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/auth/Password.py	2026-11-19 20:29:16.630743689 -0500
+@@ -33,7 +33,7 @@
+         "código nuevo e invalida el anterior (funciona también como 'reenviar')."
+     ),
+ )
+-async def recuperar_password(
++def recuperar_password(
+     data: RecuperarPasswordRequest,
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+@@ -79,7 +79,7 @@
+     summary="Confirmar código y establecer la nueva contraseña",
+     description=f"El código enviado por /auth/recuperar-password expira a los {OTP_EXPIRACION_MINUTOS} minutos.",
+ )
+-async def resetear_password(
++def resetear_password(
+     data: ResetearPasswordRequest,
+     db: Session = Depends(get_db),
+ ):
+--- a/src/endpoints/auth/Registro.py	2026-11-06 21:47:25.000000000 -0500
++++ b/src/endpoints/auth/Registro.py	2026-11-19 20:29:16.633110051 -0500
+@@ -71,7 +71,7 @@
+         "minutos — si se vence, usa POST /auth/reenviar-codigo-registro."
+     ),
+ )
+-async def registrar_usuario(
++def registrar_usuario(
+     data: RegistroRequest,
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),
+@@ -134,7 +134,7 @@
+         "POST /auth/reenviar-codigo-registro para pedir uno nuevo."
+     ),
+ )
+-async def verificar_registro(
++def verificar_registro(
+     data: VerificarRegistroRequest,
+     db: Session = Depends(get_db),
+ ):
+@@ -200,7 +200,7 @@
+         "minutos ya venció. No aplica si la cuenta ya está verificada."
+     ),
+ )
+-async def reenviar_codigo_registro(
++def reenviar_codigo_registro(
+     data: ReenviarCodigoRegistroRequest,
+     background_tasks: BackgroundTasks,
+     db: Session = Depends(get_db),

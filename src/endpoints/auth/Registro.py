@@ -71,7 +71,7 @@ def _concatenar_dominio(
         "minutos — si se vence, usa POST /auth/reenviar-codigo-registro."
     ),
 )
-async def registrar_usuario(
+def registrar_usuario(
     data: RegistroRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -134,7 +134,7 @@ async def registrar_usuario(
         "POST /auth/reenviar-codigo-registro para pedir uno nuevo."
     ),
 )
-async def verificar_registro(
+def verificar_registro(
     data: VerificarRegistroRequest,
     db: Session = Depends(get_db),
 ):
@@ -200,7 +200,7 @@ async def verificar_registro(
         "minutos ya venció. No aplica si la cuenta ya está verificada."
     ),
 )
-async def reenviar_codigo_registro(
+def reenviar_codigo_registro(
     data: ReenviarCodigoRegistroRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
